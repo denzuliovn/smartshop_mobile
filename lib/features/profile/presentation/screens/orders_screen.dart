@@ -48,7 +48,7 @@ class OrdersScreen extends StatelessWidget {
 
     return Card(
       child: InkWell(
-        onTap: () => context.go('/orders/${order.id}'),
+        onTap: () => context.push('/orders/${order.id}'),
         child: Padding(
           padding: const EdgeInsets.all(16.0),
           child: Column(
@@ -74,7 +74,7 @@ class OrdersScreen extends StatelessWidget {
                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                    OutlinedButton(
-                     onPressed: () => context.go('/orders/${order.id}'),
+                     onPressed: () => context.push('/orders/${order.id}'),
                      child: const Text('Xem chi tiết'),
                    ),
                   Text(statusText, style: TextStyle(color: statusColor, fontWeight: FontWeight.bold)),

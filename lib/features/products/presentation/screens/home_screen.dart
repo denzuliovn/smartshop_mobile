@@ -18,7 +18,7 @@ class HomeScreen extends StatelessWidget {
         actions: [
           IconButton(onPressed: () {}, icon: const Icon(Icons.search)),
           IconButton(
-              onPressed: () => context.go('/cart'),
+              onPressed: () => context.push('/cart'),
               icon: const Icon(Icons.shopping_cart_outlined)),
         ],
       ),

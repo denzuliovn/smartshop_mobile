@@ -7,7 +7,13 @@ class CheckoutScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Thanh toán')),
+      appBar: AppBar(
+        title: const Text('Thanh toán'),
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back),
+          onPressed: () => context.pop(),
+          ),
+        ),
       body: ListView(
         padding: const EdgeInsets.all(16.0),
         children: [

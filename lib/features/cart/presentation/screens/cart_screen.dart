@@ -25,7 +25,7 @@ class _CartScreenState extends State<CartScreen> {
         title: const Text('Giỏ hàng'),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
-          onPressed: () => context.go('/'),
+          onPressed: () => context.pop(),
         ),
       ),
       body: mockCartItems.isEmpty
@@ -148,7 +148,7 @@ class _CartScreenState extends State<CartScreen> {
           ),
           const SizedBox(height: 20),
           ElevatedButton(
-            onPressed: () => context.go('/checkout'),
+            onPressed: () => context.push('/checkout'),
             style: ElevatedButton.styleFrom(minimumSize: const Size(double.infinity, 50)),
             child: const Text('Tiến hành thanh toán'),
           ),

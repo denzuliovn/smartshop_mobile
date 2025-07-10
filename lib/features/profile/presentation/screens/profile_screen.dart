@@ -40,7 +40,7 @@ class ProfileScreen extends StatelessWidget {
           ),
           
           // Menu List
-          _buildMenuItem(context, icon: Icons.shopping_bag_outlined, title: 'Đơn hàng của tôi', onTap: () => context.go('/orders')),
+          _buildMenuItem(context, icon: Icons.shopping_bag_outlined, title: 'Đơn hàng của tôi', onTap: () => context.push('/orders')),
           _buildMenuItem(context, icon: Icons.location_on_outlined, title: 'Địa chỉ nhận hàng', onTap: () {}),
           _buildMenuItem(context, icon: Icons.payment_outlined, title: 'Phương thức thanh toán', onTap: () {}),
           _buildMenuItem(context, icon: Icons.notifications_outlined, title: 'Thông báo', onTap: () {}),

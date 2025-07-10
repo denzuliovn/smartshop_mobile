@@ -24,11 +24,11 @@ final mockAdmin = User(
 
 // --- Categories ---
 final mockCategories = [
-  Category(id: 'cat1', name: 'Smart Phones', imageUrl: 'https://cdn-icons-png.flaticon.com/512/644/644458.png'),
-  Category(id: 'cat2', name: 'Laptops', imageUrl: 'https://cdn-icons-png.flaticon.com/512/428/428001.png'),
-  Category(id: 'cat3', name: 'Smart Home', imageUrl: 'https://cdn-icons-png.flaticon.com/512/3063/3063821.png'),
-  Category(id: 'cat4', name: 'Wearables', imageUrl: 'https://cdn-icons-png.flaticon.com/512/3429/3429397.png'),
-  Category(id: 'cat5', name: 'Audio', imageUrl: 'https://cdn-icons-png.flaticon.com/512/3081/3081541.png'),
+  Category(id: 'cat1', name: 'Smart Phones', imageUrl: 'https://cdn-icons-png.flaticon.com/128/244/244210.png'),
+  Category(id: 'cat2', name: 'Laptop', imageUrl: 'https://cdn-icons-png.flaticon.com/512/428/428001.png'),
+  Category(id: 'cat3', name: 'headphone', imageUrl: 'https://cdn-icons-png.flaticon.com/128/8407/8407995.png'),
+  Category(id: 'cat4', name: 'tablet', imageUrl: 'https://cdn-icons-png.flaticon.com/128/64/64828.png'),
+  Category(id: 'cat5', name: 'Smart Watch', imageUrl: 'https://cdn-icons-png.flaticon.com/128/7361/7361546.png'),
 ];
 
 // --- Brands ---
