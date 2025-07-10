@@ -12,15 +12,14 @@ class HomeScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text('SmartShop', style: GoogleFonts.poppins(fontWeight: FontWeight.w600)),
-        centerTitle: false,     
-    
+        title: Text('SmartShop',
+            style: GoogleFonts.poppins(fontWeight: FontWeight.w600)),
+        centerTitle: false,
         actions: [
-          IconButton(onPressed: () {}, icon: const Icon(Icons.search)), 
-          IconButton(onPressed: () {}, icon: const Icon(Icons.shopping_cart_outlined)),
-          IconButton(onPressed: () => context.go('/cart'), icon: const Icon(Icons.shopping_cart_outlined)),
-          IconButton(tooltip: 'Đăng nhập', onPressed: () => context.go('/login'),icon: const Icon(Icons.person_outline),
-          ),
+          IconButton(onPressed: () {}, icon: const Icon(Icons.search)),
+          IconButton(
+              onPressed: () => context.go('/cart'),
+              icon: const Icon(Icons.shopping_cart_outlined)),
         ],
       ),
       body: SingleChildScrollView(
@@ -119,7 +118,7 @@ class HomeScreen extends StatelessWidget {
             child: Row(
               children: [
                 Text('Xem tất cả', style: TextStyle(color: Theme.of(context).primaryColor)),
-                Icon(Icons.arrow_forward_ios, size: 16, color: Theme.of(context).primaryColor), // <--- ĐÃ SỬA
+                Icon(Icons.arrow_forward_ios, size: 16, color: Theme.of(context).primaryColor),
               ],
             ),
           ),

@@ -16,7 +16,7 @@ class ProductCard extends StatelessWidget {
       child: InkWell(
         borderRadius: BorderRadius.circular(15),
         onTap: () {
-          context.go('/product/${product.id}'); 
+          context.go('/product/${product.id}');
         },
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -26,15 +26,18 @@ class ProductCard extends StatelessWidget {
               child: Stack(
                 fit: StackFit.expand,
                 children: [
-                  CachedNetworkImage(
-                    imageUrl: product.images.isNotEmpty ? product.images[0] : '',
-                    fit: BoxFit.cover,
-                    placeholder: (context, url) => Center(
-                        child: CircularProgressIndicator(
-                      strokeWidth: 2,
-                    )),
-                    errorWidget: (context, url, error) =>
-                        const Icon(Icons.error, color: Colors.red),
+                  ClipRRect(
+                    borderRadius: const BorderRadius.vertical(top: Radius.circular(15)),
+                    child: CachedNetworkImage(
+                      imageUrl: product.images.isNotEmpty ? product.images[0] : '',
+                      fit: BoxFit.cover,
+                      placeholder: (context, url) => Center(
+                          child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                      )),
+                      errorWidget: (context, url, error) =>
+                          const Icon(Icons.error, color: Colors.red),
+                    ),
                   ),
                   if (product.originalPrice != null &&
                       product.originalPrice! > product.price)
@@ -102,7 +105,7 @@ class ProductCard extends StatelessWidget {
                     ),
                     Row(
                       children: [
-                        const Icon(Icons.star, // <--- ĐÃ SỬA
+                        const Icon(Icons.star,
                             color: Colors.amber, size: 14),
                         const SizedBox(width: 4),
                         Text(

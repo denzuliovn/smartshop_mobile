@@ -19,18 +19,8 @@ dependencies:
   # Quản lý trạng thái
   flutter_riverpod: ^2.5.1
 
-  # Kết nối GraphQL
-  graphql_flutter: ^5.2.0-beta.6 
-
   # Điều hướng
   go_router: ^14.2.0
-
-  # Lưu trữ an toàn
-  flutter_secure_storage: ^9.2.2
-
-  # Upload file
-  image_picker: ^1.1.2
-
 
 dev_dependencies:
   flutter_test:
