@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:intl/intl.dart';
 import 'package:smartshop_mobile/core/mock_data/models.dart';
-// import 'package:lucide_flutter/lucide_flutter.dart'; // ĐÃ BỎ
+import 'package:go_router/go_router.dart';
 
 class ProductCard extends StatelessWidget {
   final Product product;
@@ -16,7 +16,7 @@ class ProductCard extends StatelessWidget {
       child: InkWell(
         borderRadius: BorderRadius.circular(15),
         onTap: () {
-          // TODO: Navigate to Product Detail Screen
+          context.go('/product/${product.id}'); 
         },
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,

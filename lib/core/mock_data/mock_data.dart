@@ -4,12 +4,12 @@ import 'models.dart';
 
 final mockUser = User(
   id: 'customer1',
-  username: 'takiya',
+  username: 'manhduc',
   email: 'customer1@gmail.com',
-  firstName: 'Takiya',
-  lastName: 'Genji',
+  firstName: 'Manh Duc',
+  lastName: 'Tran',
   role: 'customer',
-  avatarUrl: 'https://i.pravatar.cc/150?u=customer1',
+  avatarUrl: 'assets/duc.jpg',
 );
     
 final mockAdmin = User(
@@ -48,7 +48,7 @@ final mockProducts = [
     description: 'iPhone 15 Pro. Rất Pro. Chip A17 Pro. Nút Tác vụ. Cổng kết nối USB‑C. Tất cả trong một thiết kế bằng titan chuẩn hàng không vũ trụ, bền chắc mà lại nhẹ. Đây là mẫu iPhone Pro nhẹ nhất từ trước đến nay.',
     price: 28990000,
     originalPrice: 34990000,
-    images: ['https://images.unsplash.com/photo-1695026139365-341328054c0e?q=80&w=800'],
+    images: ['assets/prod1.jpg'],
     stock: 50,
     isFeatured: true,
     category: mockCategories[0],
@@ -56,11 +56,11 @@ final mockProducts = [
   ),
   Product(
     id: 'prod2',
-    name: 'Samsung Galaxy S24 Ultra 12GB 512GB - Xám Titan',
+    name: 'Samsung Galaxy S24 Ultra 12GB 512GB - Xanh Titan',
     description: 'Galaxy AI is here. Tìm kiếm nhanh hơn, giao tiếp thông minh hơn, sáng tạo dễ dàng hơn. Cùng với khung titan bền bỉ và camera 200MP xuất sắc.',
     price: 30490000,
     originalPrice: 37490000,
-    images: ['https://images.unsplash.com/photo-1707345512638-997d31a1052c?q=80&w=800'],
+    images: ['assets/prod2.jpg'],
     stock: 30,
     isFeatured: true,
     category: mockCategories[0],
@@ -72,7 +72,7 @@ final mockProducts = [
     description: 'MacBook Pro bứt phá với chip M3, M3 Pro và M3 Max. Công nghệ 3 nanometer và kiến trúc GPU hoàn toàn mới giúp đây trở thành những con chip tiên tiến nhất từng được chế tạo cho máy tính cá nhân.',
     price: 52490000,
     originalPrice: 55990000,
-    images: ['https://images.unsplash.com/photo-1628191080183-16a79354d8a5?q=80&w=800'],
+    images: ['assets/prod3.jpg'],
     stock: 25,
     isFeatured: true,
     category: mockCategories[1],
@@ -83,10 +83,50 @@ final mockProducts = [
     name: 'Tai nghe Sony WH-1000XM5 - Chống ồn đỉnh cao',
     description: 'Tai nghe chống ồn tốt nhất của chúng tôi vừa được cải tiến để mang lại cho bạn trải nghiệm nghe trọn vẹn hơn nữa. Tận hưởng chất lượng âm thanh và cuộc gọi vượt trội.',
     price: 7990000,
-    images: ['https://images.unsplash.com/photo-1652705051184-3c5513f5b74c?q=80&w=800'],
+    images: ['assets/prod4.webp'],
     stock: 60,
     isFeatured: false,
     category: mockCategories[4],
     brand: mockBrands[3]
+  ),
+];
+
+final mockCartItems = [
+  CartItem(product: mockProducts[0], quantity: 1),
+  CartItem(product: mockProducts[2], quantity: 2),
+];
+
+// --- Orders ---
+final mockOrders = [
+  Order(
+    id: 'order1',
+    orderNumber: 'SS20240720001',
+    orderDate: DateTime.now().subtract(const Duration(days: 3)),
+    status: 'delivered',
+    items: [
+      OrderItem(id: 'item1', product: mockProducts[0], quantity: 1, priceAtOrder: 28990000),
+    ],
+    totalAmount: 28990000,
+  ),
+  Order(
+    id: 'order2',
+    orderNumber: 'SS20240718005',
+    orderDate: DateTime.now().subtract(const Duration(days: 5)),
+    status: 'shipping',
+    items: [
+      OrderItem(id: 'item2', product: mockProducts[3], quantity: 1, priceAtOrder: 7990000),
+      OrderItem(id: 'item3', product: mockProducts[1], quantity: 1, priceAtOrder: 30490000),
+    ],
+    totalAmount: 38480000,
+  ),
+  Order(
+    id: 'order3',
+    orderNumber: 'SS20240715002',
+    orderDate: DateTime.now().subtract(const Duration(days: 8)),
+    status: 'cancelled',
+    items: [
+      OrderItem(id: 'item4', product: mockProducts[2], quantity: 1, priceAtOrder: 52490000),
+    ],
+    totalAmount: 52490000,
   ),
 ];

@@ -49,3 +49,45 @@ class Product {
     this.totalReviews = 99,
   });
 }
+
+class CartItem {
+  final Product product;
+  int quantity;
+
+  CartItem({
+    required this.product,
+    this.quantity = 1,
+  });
+}
+
+class OrderItem {
+  final String id;
+  final Product product;
+  final int quantity;
+  final double priceAtOrder; // Giá tại thời điểm đặt hàng
+
+  OrderItem({
+    required this.id,
+    required this.product,
+    required this.quantity,
+    required this.priceAtOrder,
+  });
+}
+
+class Order {
+  final String id;
+  final String orderNumber;
+  final DateTime orderDate;
+  final String status; // 'pending', 'processing', 'shipping', 'delivered', 'cancelled'
+  final List<OrderItem> items;
+  final double totalAmount;
+
+  Order({
+    required this.id,
+    required this.orderNumber,
+    required this.orderDate,
+    required this.status,
+    required this.items,
+    required this.totalAmount,
+  });
+}

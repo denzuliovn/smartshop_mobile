@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:smartshop_mobile/core/theme/theme.dart';
-import 'package:smartshop_mobile/features/products/presentation/screens/home_screen.dart';
+import 'package:smartshop_mobile/router.dart'; // Import router
 
 void main() {
   runApp(const MyApp());
@@ -11,11 +11,12 @@ class MyApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
+    // Sử dụng MaterialApp.router để tích hợp GoRouter
+    return MaterialApp.router(
       title: 'SmartShop',
       theme: AppTheme.lightTheme,
       debugShowCheckedModeBanner: false,
-      home: const HomeScreen(), // Màn hình chính của ứng dụng
+      routerConfig: router, // Cung cấp cấu hình router cho ứng dụng
     );
   }
 }

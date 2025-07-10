@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-// import 'package:lucide_flutter/lucide_flutter.dart'; // ĐÃ BỎ
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:smartshop_mobile/core/mock_data/mock_data.dart';
 import 'package:smartshop_mobile/features/products/presentation/widgets/product_card.dart';
+import 'package:go_router/go_router.dart';
 
 class HomeScreen extends StatelessWidget {
   const HomeScreen({super.key});
@@ -12,11 +12,15 @@ class HomeScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text('SmartShop',
-            style: GoogleFonts.poppins(fontWeight: FontWeight.w600)),
+        title: Text('SmartShop', style: GoogleFonts.poppins(fontWeight: FontWeight.w600)),
+        centerTitle: false,     
+    
         actions: [
-          IconButton(onPressed: () {}, icon: const Icon(Icons.search)), // <--- ĐÃ SỬA
-          IconButton(onPressed: () {}, icon: const Icon(Icons.shopping_cart_outlined)), // <--- ĐÃ SỬA
+          IconButton(onPressed: () {}, icon: const Icon(Icons.search)), 
+          IconButton(onPressed: () {}, icon: const Icon(Icons.shopping_cart_outlined)),
+          IconButton(onPressed: () => context.go('/cart'), icon: const Icon(Icons.shopping_cart_outlined)),
+          IconButton(tooltip: 'Đăng nhập', onPressed: () => context.go('/login'),icon: const Icon(Icons.person_outline),
+          ),
         ],
       ),
       body: SingleChildScrollView(
