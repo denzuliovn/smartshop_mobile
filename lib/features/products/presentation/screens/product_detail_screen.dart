@@ -1,47 +1,72 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:intl/intl.dart';
 import 'package:go_router/go_router.dart';
-import 'package:smartshop_mobile/core/mock_data/mock_data.dart';
 import 'package:smartshop_mobile/core/mock_data/models.dart';
+import 'package:smartshop_mobile/features/products/application/product_providers.dart';
 import 'package:collection/collection.dart';
+import 'package:smartshop_mobile/features/cart/application/cart_provider.dart';
 
-class ProductDetailScreen extends StatefulWidget {
+
+// Đổi thành ConsumerStatefulWidget để quản lý state cục bộ (số lượng, index ảnh)
+class ProductDetailScreen extends ConsumerStatefulWidget {
   final String productId;
   const ProductDetailScreen({super.key, required this.productId});
 
   @override
-  State<ProductDetailScreen> createState() => _ProductDetailScreenState();
+  ConsumerState<ProductDetailScreen> createState() => _ProductDetailScreenState();
 }
 
-class _ProductDetailScreenState extends State<ProductDetailScreen> {
+class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
   int _quantity = 1;
   int _currentImageIndex = 0;
   final PageController _pageController = PageController();
 
   @override
   Widget build(BuildContext context) {
-    final product =
-        mockProducts.firstWhereOrNull((p) => p.id == widget.productId);
+    // Lắng nghe provider chi tiết sản phẩm với ID được truyền vào
+    final productAsyncValue = ref.watch(productDetailProvider(widget.productId));
 
-    if (product == null) {
-      return Scaffold(
-        appBar: AppBar(),
-        body: Center(
-            child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            const Text('Không tìm thấy sản phẩm!'),
-            const SizedBox(height: 20),
-            ElevatedButton(
-              onPressed: () => context.go('/'),
-              child: const Text('Về trang chủ'),
-            )
-          ],
-        )),
-      );
-    }
+    return Scaffold(
+      // Dùng `when` để xử lý 3 trạng thái: loading, error, data
+      body: productAsyncValue.when(
+        data: (product) => _buildProductUI(context, product),
+        loading: () => _buildLoadingUI(),
+        error: (err, stack) => _buildErrorUI(err.toString()),
+      ),
+    );
+  }
 
+  // UI khi đang tải
+  Widget _buildLoadingUI() {
+    return const Center(child: CircularProgressIndicator());
+  }
+  
+  // UI khi có lỗi
+  Widget _buildErrorUI(String error) {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(Icons.error_outline, color: Colors.red, size: 60),
+          const SizedBox(height: 16),
+          Text('Lỗi tải sản phẩm', style: Theme.of(context).textTheme.headlineSmall),
+          Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: Text(error, textAlign: TextAlign.center, style: TextStyle(color: Colors.grey[700])),
+          ),
+          ElevatedButton(
+            onPressed: () => ref.refresh(productDetailProvider(widget.productId)),
+            child: const Text('Thử lại'),
+          )
+        ],
+      ),
+    );
+  }
+  
+  // UI chính khi có dữ liệu sản phẩm
+  Widget _buildProductUI(BuildContext context, Product product) {
     final formatCurrency = NumberFormat.currency(locale: 'vi_VN', symbol: '₫');
 
     return Scaffold(
@@ -100,7 +125,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                             borderRadius: BorderRadius.circular(4),
                             color: _currentImageIndex == index
                                 ? Theme.of(context).primaryColor
-                                : Colors.white.withOpacity(0.7),
+                                : Colors.white.withAlpha(178),
                           ),
                         );
                       }).toList(),
@@ -213,6 +238,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                 : const Text('Hết hàng'),
             onPressed: product.stock > 0
                 ? () {
+                    ref.read(cartProvider.notifier).addToCart(product.id, _quantity);
                     ScaffoldMessenger.of(context).showSnackBar(
                       SnackBar(
                         content: Text('Đã thêm $_quantity ${product.name} vào giỏ hàng!'),

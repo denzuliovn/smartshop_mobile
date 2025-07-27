@@ -1,11 +1,16 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:smartshop_mobile/features/auth/application/auth_provider.dart';
 
-class ForgotPasswordScreen extends StatelessWidget {
+class ForgotPasswordScreen extends ConsumerWidget {
   const ForgotPasswordScreen({super.key});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final emailController = TextEditingController();
+    final authState = ref.watch(authProvider);
+
     return Scaffold(
        backgroundColor: Colors.white,
       appBar: AppBar(
@@ -22,21 +27,23 @@ class ForgotPasswordScreen extends StatelessWidget {
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 32),
-            const TextField(decoration: InputDecoration(labelText: 'Email')),
+            TextField(controller: emailController, decoration: const InputDecoration(labelText: 'Email')),
             const SizedBox(height: 32),
             ElevatedButton(
-              onPressed: () {
-                 // TODO: Xử lý logic gửi email
+              onPressed: authState is AuthLoading ? null : () {
+                 ref.read(authProvider.notifier).forgotPassword(emailController.text);
                  ScaffoldMessenger.of(context).showSnackBar(
-                   const SnackBar(content: Text('Hướng dẫn đã được gửi tới email của bạn!'))
+                   const SnackBar(content: Text('Nếu email tồn tại, hướng dẫn đã được gửi đi!'))
                  );
                  context.pop();
               },
-              child: const Text('Gửi hướng dẫn'),
+              child: authState is AuthLoading
+                    ? const SizedBox(width: 24, height: 24, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                    : const Text('Gửi hướng dẫn'),
             ),
           ],
         ),
       ),
     );
   }
-}
+} 

@@ -92,9 +92,22 @@ final mockProducts = [
 ];
 
 final mockCartItems = [
-  CartItem(product: mockProducts[0], quantity: 1),
-  CartItem(product: mockProducts[2], quantity: 2),
+  CartItem(
+    id: 'cartItem1',
+    product: mockProducts[0],
+    quantity: 1,
+    unitPrice: mockProducts[0].price,
+    totalPrice: mockProducts[0].price * 1,
+  ),
+  CartItem(
+    id: 'cartItem2',
+    product: mockProducts[2],
+    quantity: 2,
+    unitPrice: mockProducts[2].price,
+    totalPrice: mockProducts[2].price * 2,
+  ),
 ];
+
 
 // --- Orders ---
 final mockOrders = [
@@ -104,7 +117,14 @@ final mockOrders = [
     orderDate: DateTime.now().subtract(const Duration(days: 3)),
     status: 'delivered',
     items: [
-      OrderItem(id: 'item1', product: mockProducts[0], quantity: 1, priceAtOrder: 28990000),
+      OrderItem(
+        id: 'item1',
+        product: mockProducts[0],
+        productName: mockProducts[0].name,   // Thêm vào
+        productSku: 'IPH15PRO001',           // Thêm vào
+        quantity: 1,
+        priceAtOrder: 28990000,
+      ),
     ],
     totalAmount: 28990000,
   ),
@@ -114,8 +134,22 @@ final mockOrders = [
     orderDate: DateTime.now().subtract(const Duration(days: 5)),
     status: 'shipping',
     items: [
-      OrderItem(id: 'item2', product: mockProducts[3], quantity: 1, priceAtOrder: 7990000),
-      OrderItem(id: 'item3', product: mockProducts[1], quantity: 1, priceAtOrder: 30490000),
+      OrderItem(
+        id: 'item2',
+        product: mockProducts[3],
+        productName: mockProducts[3].name,   // Thêm vào
+        productSku: 'SONYWH1000XM5',         // Thêm vào
+        quantity: 1,
+        priceAtOrder: 7990000,
+      ),
+      OrderItem(
+        id: 'item3',
+        product: mockProducts[1],
+        productName: mockProducts[1].name,   // Thêm vào
+        productSku: 'SAM24ULTRA001',         // Thêm vào
+        quantity: 1,
+        priceAtOrder: 30490000,
+      ),
     ],
     totalAmount: 38480000,
   ),
@@ -125,7 +159,14 @@ final mockOrders = [
     orderDate: DateTime.now().subtract(const Duration(days: 8)),
     status: 'cancelled',
     items: [
-      OrderItem(id: 'item4', product: mockProducts[2], quantity: 1, priceAtOrder: 52490000),
+      OrderItem(
+        id: 'item4',
+        product: mockProducts[2],
+        productName: mockProducts[2].name,  // Thêm vào
+        productSku: 'MBP14M3001',          // Thêm vào
+        quantity: 1,
+        priceAtOrder: 52490000,
+      ),
     ],
     totalAmount: 52490000,
   ),

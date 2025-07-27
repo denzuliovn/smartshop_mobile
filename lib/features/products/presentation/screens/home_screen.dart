@@ -1,50 +1,41 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:smartshop_mobile/core/mock_data/mock_data.dart';
+import 'package:smartshop_mobile/core/mock_data/models.dart';
+import 'package:smartshop_mobile/features/products/application/product_providers.dart';
 import 'package:smartshop_mobile/features/products/presentation/widgets/product_card.dart';
-import 'package:go_router/go_router.dart';
 
-class HomeScreen extends StatelessWidget {
+class HomeScreen extends ConsumerWidget {
   const HomeScreen({super.key});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final featuredProductsAsync = ref.watch(featuredProductsProvider);
+    final forYouProducts = mockProducts;
+
     return Scaffold(
-      appBar: AppBar(
-        title: Text('SmartShop',
-            style: GoogleFonts.poppins(fontWeight: FontWeight.w600)),
-        centerTitle: false,
-        actions: [
-          IconButton(onPressed: () {}, icon: const Icon(Icons.search)),
-          IconButton(
-              onPressed: () => context.push('/cart'),
-              icon: const Icon(Icons.shopping_cart_outlined)),
-        ],
-      ),
       body: SingleChildScrollView(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Banner Section
             _buildBanner(context),
             const SizedBox(height: 16),
-
-            // Categories Section
             _buildSectionHeader(context, 'Danh mục', () {}),
             const SizedBox(height: 8),
             _buildCategories(),
             const SizedBox(height: 24),
-
-            // Featured Products Section
             _buildSectionHeader(context, 'Sản phẩm nổi bật', () {}),
             const SizedBox(height: 8),
-            _buildFeaturedProducts(),
+            featuredProductsAsync.when(
+              data: (products) => _buildFeaturedProducts(products),
+              loading: () => _buildLoadingIndicator(),
+              error: (err, stack) => _buildErrorWidget(err.toString()),
+            ),
             const SizedBox(height: 24),
-
             _buildSectionHeader(context, 'Dành cho bạn', () {}),
             const SizedBox(height: 8),
-            _buildForYouProducts(context),
+            _buildForYouProducts(context, forYouProducts),
             const SizedBox(height: 24),
           ],
         ),
@@ -66,7 +57,7 @@ class HomeScreen extends StatelessWidget {
         ),
         boxShadow: [
           BoxShadow(
-            color: Colors.blue.withOpacity(0.3),
+            color: Colors.blue.withAlpha(77), // Sửa: withOpacity(0.3) -> withAlpha(77)
             blurRadius: 15,
             offset: const Offset(0, 5),
           )
@@ -87,7 +78,7 @@ class HomeScreen extends StatelessWidget {
           Text(
             'Giảm giá đến 50% cho tất cả sản phẩm',
             style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                  color: Colors.white.withOpacity(0.9),
+                  color: Colors.white.withAlpha(230), // Sửa: withOpacity(0.9) -> withAlpha(230)
                 ),
           ),
           const SizedBox(height: 16),
@@ -146,10 +137,14 @@ class HomeScreen extends StatelessWidget {
                   height: 70,
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
-                    color: Colors.blue.withOpacity(0.1),
+                    color: Colors.blue.withAlpha(25), // Sửa: withOpacity(0.1) -> withAlpha(25)
                     borderRadius: BorderRadius.circular(15),
                   ),
-                  child: CachedNetworkImage(imageUrl: category.imageUrl, color: Colors.blue.shade700),
+                  child: CachedNetworkImage(
+                    imageUrl: category.imageUrl ?? '',
+                    color: Colors.blue.shade700,
+                    errorWidget: (context, url, error) => const Icon(Icons.image_not_supported, color: Colors.grey),
+                  ),
                 ),
                 const SizedBox(height: 8),
                 Text(
@@ -167,26 +162,54 @@ class HomeScreen extends StatelessWidget {
     );
   }
   
-  Widget _buildFeaturedProducts() {
+  Widget _buildFeaturedProducts(List<Product> products) {
+    if (products.isEmpty) {
+      return const Center(child: Padding(
+        padding: EdgeInsets.all(20.0),
+        child: Text('Không có sản phẩm nổi bật nào.'),
+      ));
+    }
     return SizedBox(
       height: 290,
       child: ListView.separated(
         scrollDirection: Axis.horizontal,
-        itemCount: mockProducts.where((p) => p.isFeatured).length,
+        itemCount: products.length,
         padding: const EdgeInsets.symmetric(horizontal: 16.0),
         separatorBuilder: (context, index) => const SizedBox(width: 16),
         itemBuilder: (context, index) {
-          final product = mockProducts.where((p) => p.isFeatured).toList()[index];
           return SizedBox(
             width: 180,
-            child: ProductCard(product: product),
+            child: ProductCard(product: products[index]),
           );
         },
       ),
     );
   }
+  
+  Widget _buildLoadingIndicator() {
+    return const SizedBox(
+      height: 290,
+      child: Center(child: CircularProgressIndicator()),
+    );
+  }
 
-  Widget _buildForYouProducts(BuildContext context) {
+  Widget _buildErrorWidget(String error) {
+    return SizedBox(
+      height: 290,
+      child: Center(
+        child: Padding(
+          padding: const EdgeInsets.all(16.0),
+          child: Text(
+            "Lỗi tải sản phẩm: $error",
+            style: const TextStyle(color: Colors.red),
+            textAlign: TextAlign.center,
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildForYouProducts(BuildContext context, List<Product> products) {
     return GridView.builder(
       shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
@@ -197,9 +220,9 @@ class HomeScreen extends StatelessWidget {
         crossAxisSpacing: 16,
         mainAxisSpacing: 16,
       ),
-      itemCount: mockProducts.length,
+      itemCount: products.length,
       itemBuilder: (context, index) {
-        return ProductCard(product: mockProducts[index]);
+        return ProductCard(product: products[index]);
       },
     );
   }

@@ -1,30 +1,60 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
-import 'package:smartshop_mobile/core/mock_data/mock_data.dart';
 import 'package:smartshop_mobile/core/mock_data/models.dart';
+import 'package:smartshop_mobile/features/profile/application/order_providers.dart';
+import 'package:smartshop_mobile/core/utils/formatter.dart';
+import 'package:smartshop_mobile/core/utils/formatter.dart';
 
-class OrdersScreen extends StatelessWidget {
+class OrdersScreen extends ConsumerWidget {
   const OrdersScreen({super.key});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final ordersAsyncValue = ref.watch(myOrdersProvider);
+
     return Scaffold(
       appBar: AppBar(title: const Text('Đơn hàng của tôi')),
-      body: ListView.separated(
-        padding: const EdgeInsets.all(16),
-        itemCount: mockOrders.length,
-        separatorBuilder: (context, index) => const SizedBox(height: 16),
-        itemBuilder: (context, index) {
-          return _buildOrderCard(context, mockOrders[index]);
+      body: ordersAsyncValue.when(
+        data: (orders) {
+          if (orders.isEmpty) {
+            return Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Icon(Icons.receipt_long_outlined, size: 80, color: Colors.grey),
+                  const SizedBox(height: 16),
+                  const Text('Bạn chưa có đơn hàng nào', style: TextStyle(fontSize: 18)),
+                  const SizedBox(height: 16),
+                  ElevatedButton(
+                    onPressed: () => context.go('/'),
+                    child: const Text('Bắt đầu mua sắm'),
+                  )
+                ],
+              ),
+            );
+          }
+          return RefreshIndicator(
+            onRefresh: () => ref.refresh(myOrdersProvider.future),
+            child: ListView.separated(
+              padding: const EdgeInsets.all(16),
+              itemCount: orders.length,
+              separatorBuilder: (context, index) => const SizedBox(height: 16),
+              itemBuilder: (context, index) {
+                return _buildOrderCard(context, orders[index]);
+              },
+            ),
+          );
         },
+        loading: () => const Center(child: CircularProgressIndicator()),
+        error: (err, stack) => Center(child: Text('Lỗi: ${err.toString()}')),
       ),
     );
   }
 
+  }
   Widget _buildOrderCard(BuildContext context, Order order) {
-    final formatCurrency = NumberFormat.currency(locale: 'vi_VN', symbol: '₫');
-    final formatDate = DateFormat('dd/MM/yyyy HH:mm');
 
     Color statusColor;
     String statusText;
@@ -48,7 +78,7 @@ class OrdersScreen extends StatelessWidget {
 
     return Card(
       child: InkWell(
-        onTap: () => context.push('/orders/${order.id}'),
+        onTap: () => context.push('/orders/${order.orderNumber}'),
         child: Padding(
           padding: const EdgeInsets.all(16.0),
           child: Column(
@@ -58,7 +88,7 @@ class OrdersScreen extends StatelessWidget {
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   Text('Đơn hàng #${order.orderNumber}', style: const TextStyle(fontWeight: FontWeight.bold)),
-                  Text(formatDate.format(order.orderDate), style: const TextStyle(color: Colors.grey, fontSize: 12)),
+                  Text(AppFormatters.formatDate(order.orderDate), style: const TextStyle(color: Colors.grey, fontSize: 12)),
                 ],
               ),
               const Divider(height: 24),
@@ -66,7 +96,7 @@ class OrdersScreen extends StatelessWidget {
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   Text('Số lượng: ${order.items.length} sản phẩm'),
-                  Text('Tổng tiền: ${formatCurrency.format(order.totalAmount)}', style: const TextStyle(fontWeight: FontWeight.bold)),
+                  Text('Tổng tiền: ${AppFormatters.currency.format(order.totalAmount)}', style: const TextStyle(fontWeight: FontWeight.bold)),
                 ],
               ),
               const SizedBox(height: 16),
@@ -74,7 +104,7 @@ class OrdersScreen extends StatelessWidget {
                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                    OutlinedButton(
-                     onPressed: () => context.push('/orders/${order.id}'),
+                     onPressed: () => context.push('/orders/${order.orderNumber}'),
                      child: const Text('Xem chi tiết'),
                    ),
                   Text(statusText, style: TextStyle(color: statusColor, fontWeight: FontWeight.bold)),
@@ -86,4 +116,3 @@ class OrdersScreen extends StatelessWidget {
       ),
     );
   }
-}

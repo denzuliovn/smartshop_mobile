@@ -15,12 +15,20 @@ dependencies:
   google_fonts: ^6.2.1
   intl: ^0.19.0
   cached_network_image: ^3.3.1
+  collection: ^1.18.0 # Thêm collection để dùng firstWhereOrNull
   
   # Quản lý trạng thái
   flutter_riverpod: ^2.5.1
 
   # Điều hướng
   go_router: ^14.2.0
+
+  graphql_flutter: ^5.2.0-beta.6
+
+  # Lưu trữ bảo mật
+  # Dùng để lưu trữ token và thông tin người dùng
+  flutter_secure_storage: ^9.2.2 
+
 
 dev_dependencies:
   flutter_test:
