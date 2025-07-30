@@ -1,3 +1,5 @@
+import 'package:smartshop_mobile/features/profile/data/order_graphql.dart'; 
+
 class AdminGraphQL {
   // Query để lấy các số liệu thống kê đơn hàng
   static const String getOrderStats = r'''
@@ -39,5 +41,21 @@ class AdminGraphQL {
       }
     }
   ''';
+
+  static const String getOrder = '''
+    query GetOrder(\$orderNumber: String!) {
+      getOrder(orderNumber: \$orderNumber) {
+        ...OrderDetails
+        user {
+          _id
+          firstName
+          lastName
+          email
+        }
+      }
+    }
+    ${OrderGraphQL.orderFragment}
+  ''';
+
 
 }

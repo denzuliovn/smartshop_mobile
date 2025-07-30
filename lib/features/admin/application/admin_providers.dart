@@ -10,3 +10,8 @@ final allOrdersProvider = FutureProvider.autoDispose<List<Order>>((ref) {
   // Tạm thời chưa có phân trang và lọc
   return ref.watch(adminRepositoryProvider).getAllOrders();
 });
+
+final adminOrderDetailProvider = FutureProvider.autoDispose.family<Order, String>((ref, orderNumber) {
+  return ref.watch(adminRepositoryProvider).getOrder(orderNumber);
+});
+

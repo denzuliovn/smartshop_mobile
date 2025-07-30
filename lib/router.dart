@@ -27,6 +27,7 @@ import 'package:smartshop_mobile/features/admin/presentation/screens/admin_dashb
 import 'package:smartshop_mobile/features/admin/presentation/screens/admin_main_screen.dart';
 import 'package:smartshop_mobile/features/admin/presentation/screens/admin_orders_screen.dart';
 import 'package:smartshop_mobile/features/admin/presentation/screens/admin_products_screen.dart';
+import 'package:smartshop_mobile/features/admin/presentation/screens/admin_order_detail_screen.dart';
 import 'dart:async';
 
 class GoRouterRefreshStream extends ChangeNotifier {
@@ -72,6 +73,13 @@ final routerProvider = Provider<GoRouter>((ref) {
           GoRoute(path: '/admin', builder: (context, state) => const AdminDashboardScreen()),
           GoRoute(path: '/admin/orders', builder: (context, state) => const AdminOrdersScreen()),
           GoRoute(path: '/admin/products', builder: (context, state) => const AdminProductsScreen()),
+          GoRoute(
+            path: '/admin/orders/:orderNumber',
+            builder: (context, state) {
+              final orderNumber = state.pathParameters['orderNumber']!;
+              return AdminOrderDetailScreen(orderNumber: orderNumber);
+            },
+          ),
         ]
       ),
 

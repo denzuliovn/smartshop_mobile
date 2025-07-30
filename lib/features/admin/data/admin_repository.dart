@@ -45,4 +45,19 @@ class AdminRepository {
     return list.map((json) => Order.fromJson(json)).toList();
   }
 
+  Future<Order> getOrder(String orderNumber) async {
+    final options = QueryOptions(
+      document: gql(AdminGraphQL.getOrder),
+      variables: {'orderNumber': orderNumber},
+      fetchPolicy: FetchPolicy.networkOnly,
+    );
+    final result = await client.query(options);
+    if (result.hasException) throw Exception(result.exception.toString());
+    
+    final orderJson = result.data?['getOrder'];
+    if (orderJson == null) throw Exception('Không tìm thấy đơn hàng');
+    
+    return Order.fromJson(orderJson);
+  }
+
 }

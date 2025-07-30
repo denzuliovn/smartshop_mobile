@@ -83,7 +83,7 @@ class AdminOrdersScreen extends ConsumerWidget {
           ],
         ),
         onTap: () {
-          // TODO: Điều hướng đến trang chi tiết đơn hàng của Admin
+          context.push('/admin/orders/${order.orderNumber}');
         },
       ),
     );
