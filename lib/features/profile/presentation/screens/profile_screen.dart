@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:smartshop_mobile/core/mock_data/mock_data.dart';
 import 'package:smartshop_mobile/features/auth/application/auth_provider.dart';
 
 class ProfileScreen extends ConsumerWidget {
@@ -11,22 +10,20 @@ class ProfileScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final authState = ref.watch(authProvider);
 
+    // Nếu user chưa đăng nhập
     if (authState is! Authenticated) {
-      // Nếu user chưa đăng nhập, hiển thị nút để đi tới trang login
-      return Scaffold(
-        body: Center(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              const Text('Vui lòng đăng nhập để xem thông tin.'),
-              const SizedBox(height: 20),
-              ElevatedButton(
-                onPressed: () => context.go('/login'),
-                child: const Text('Đăng nhập / Đăng ký'),
-              )
-            ],
-          ),
-        )
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Text('Vui lòng đăng nhập để xem thông tin.'),
+            const SizedBox(height: 20),
+            ElevatedButton(
+              onPressed: () => context.go('/login'),
+              child: const Text('Đăng nhập / Đăng ký'),
+            )
+          ],
+        ),
       );
     }
     
@@ -34,10 +31,13 @@ class ProfileScreen extends ConsumerWidget {
     final user = authState.user;
 
     return Scaffold(
+      // AppBar đã được quản lý bởi MainScreen
       body: ListView(
+        padding: EdgeInsets.zero, // Xóa padding mặc định của ListView
         children: [
+          // User Info Header
           Container(
-            padding: const EdgeInsets.all(24),
+            padding: const EdgeInsets.fromLTRB(24, 60, 24, 24), // Tăng padding top
             color: Theme.of(context).primaryColor,
             child: Row(
               children: [
@@ -46,34 +46,60 @@ class ProfileScreen extends ConsumerWidget {
                   backgroundImage: NetworkImage(user.avatarUrl),
                 ),
                 const SizedBox(width: 20),
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      '${user.firstName} ${user.lastName}',
-                      style: Theme.of(context).textTheme.headlineSmall?.copyWith(color: Colors.white),
-                    ),
-                    Text(
-                      user.email,
-                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: Colors.white70),
-                    ),
-                  ],
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        '${user.firstName} ${user.lastName}',
+                        style: Theme.of(context).textTheme.headlineSmall?.copyWith(color: Colors.white),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      Text(
+                        user.email,
+                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: Colors.white70),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
+                  ),
+                ),
+                IconButton(
+                  onPressed: () => context.push('/edit-profile'),
+                  icon: const Icon(Icons.edit, color: Colors.white),
+                  tooltip: 'Chỉnh sửa thông tin',
                 ),
               ],
             ),
           ),
           
-          _buildMenuItem(context, icon: Icons.shopping_bag_outlined, title: 'Đơn hàng của tôi', onTap: () => context.push('/orders')),
-          _buildMenuItem(context, icon: Icons.location_on_outlined, title: 'Địa chỉ nhận hàng', onTap: () {}),
+          // --- THÊM NÚT ADMIN PANEL ---
+          if (user.role == 'admin' || user.role == 'manager')
+             _buildMenuItem(
+                context,
+                icon: Icons.admin_panel_settings_outlined,
+                title: 'Khu vực Quản trị',
+                onTap: () => context.go('/admin'),
+             ),
+          
+          // Menu List
+          _buildMenuItem(
+            context,
+            icon: Icons.receipt_long_outlined,
+            title: 'Đơn hàng của tôi',
+            onTap: () => context.go('/my-orders'),
+          ),
+          _buildMenuItem(context, icon: Icons.location_on_outlined, title: 'Địa chỉ nhận hàng', onTap: () => context.push('/addresses')),
+          _buildMenuItem(context, icon: Icons.payment_outlined, title: 'Phương thức thanh toán', onTap: () {}),
+          _buildMenuItem(context, icon: Icons.notifications_outlined, title: 'Thông báo', onTap: () => context.push('/notifications')),
+          _buildMenuItem(context, icon: Icons.settings_outlined, title: 'Cài đặt', onTap: () => context.push('/settings')),
           const Divider(),
           _buildMenuItem(
-            context, 
-            icon: Icons.logout, 
-            title: 'Đăng xuất', 
-            color: Colors.red, 
+            context,
+            icon: Icons.logout,
+            title: 'Đăng xuất',
+            color: Colors.red,
             onTap: () {
               ref.read(authProvider.notifier).logout();
-              // Router sẽ tự động điều hướng về trang login nhờ redirect
             }
           ),
         ],
@@ -81,7 +107,7 @@ class ProfileScreen extends ConsumerWidget {
     );
   }
 
-   Widget _buildMenuItem(BuildContext context, {required IconData icon, required String title, Color? color, required VoidCallback onTap}) {
+  Widget _buildMenuItem(BuildContext context, {required IconData icon, required String title, Color? color, required VoidCallback onTap}) {
     return ListTile(
       leading: Icon(icon, color: color ?? Theme.of(context).primaryColor),
       title: Text(title, style: TextStyle(color: color)),

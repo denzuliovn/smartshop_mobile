@@ -66,4 +66,25 @@ class OrderRepository {
 
     return Order.fromJson(orderJson);
   }
+
+  Future<void> cancelOrder(String orderNumber) async {
+    final options = MutationOptions(
+      document: gql(OrderGraphQL.cancelOrder),
+      variables: {
+        'orderNumber': orderNumber,
+        'reason': 'Khách hàng yêu cầu hủy', // Lý do mặc định
+      },
+    );
+
+    final result = await client.mutate(options);
+    if (result.hasException) {
+      throw Exception(result.exception.toString());
+    }
+
+    final response = result.data?['cancelOrder'];
+    if (response == null) {
+      throw Exception('Hủy đơn hàng thất bại');
+    }
+  }
+
 }

@@ -3,7 +3,6 @@ import 'package:go_router/go_router.dart';
 import 'package:smartshop_mobile/features/cart/presentation/widgets/cart_icon_widget.dart';
 
 class MainScreen extends StatefulWidget {
-  // THÊM: MainScreen giờ sẽ nhận một widget con để hiển thị
   final Widget child;
   const MainScreen({super.key, required this.child});
 
@@ -15,10 +14,10 @@ class _MainScreenState extends State<MainScreen> {
   // Hàm để tính toán index của BottomNavBar dựa trên đường dẫn URL
   int _calculateSelectedIndex(BuildContext context) {
     final String location = GoRouterState.of(context).matchedLocation;
-    if (location.startsWith('/categories')) {
+    if (location.startsWith('/explore')) {
       return 1;
     }
-    if (location.startsWith('/brands')) {
+    if (location.startsWith('/my-orders')) {
       return 2;
     }
     if (location.startsWith('/profile')) {
@@ -34,10 +33,10 @@ class _MainScreenState extends State<MainScreen> {
         context.go('/');
         break;
       case 1:
-        context.go('/categories');
+        context.go('/explore');
         break;
       case 2:
-        context.go('/brands');
+        context.go('/my-orders');
         break;
       case 3:
         context.go('/profile');
@@ -47,30 +46,68 @@ class _MainScreenState extends State<MainScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final selectedIndex = _calculateSelectedIndex(context);
+
+    // Quyết định AppBar nào sẽ được hiển thị dựa trên tab đang được chọn
+    AppBar? buildAppBar() {
+      switch (selectedIndex) {
+        case 0: // Trang chủ
+          return AppBar(
+            title: const Text('SmartShop'),
+            centerTitle: false,
+            actions: [
+              IconButton(onPressed: () => context.push('/search'), icon: const Icon(Icons.search)),
+              const CartIconWidget(),
+            ],
+          );
+        case 1: // Khám phá
+          return AppBar(
+            title: const Text('Khám phá'),
+            actions: [ const CartIconWidget() ],
+          );
+        case 2: // Đơn hàng
+          return AppBar(
+            title: const Text('Đơn hàng của tôi'),
+          );
+        case 3: // Tài khoản
+          return null;
+        default:
+          return null; // Không hiển thị AppBar cho các trường hợp khác
+      }
+    }
+
     return Scaffold(
-      // AppBar này sẽ được chia sẻ cho các màn hình con
-      appBar: AppBar(
-        title: const Text('SmartShop'),
-        centerTitle: true,
-        actions: [
-          IconButton(onPressed: () {}, icon: const Icon(Icons.search)),
-          const CartIconWidget(),
-        ],
-      ),
-      // Hiển thị widget con được truyền vào từ ShellRoute
-      body: widget.child,
+      appBar: buildAppBar(),
+      body: widget.child, // Hiển thị màn hình con được truyền từ router
       bottomNavigationBar: BottomNavigationBar(
         items: const <BottomNavigationBarItem>[
-          BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Trang chủ'),
-          BottomNavigationBarItem(icon: Icon(Icons.category), label: 'Danh mục'),
-          BottomNavigationBarItem(icon: Icon(Icons.store), label: 'Thương hiệu'),
-          BottomNavigationBarItem(icon: Icon(Icons.person), label: 'Tài khoản'),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.home_outlined),
+            activeIcon: Icon(Icons.home),
+            label: 'Trang chủ',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.explore_outlined),
+            activeIcon: Icon(Icons.explore),
+            label: 'Khám phá',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.receipt_long_outlined),
+            activeIcon: Icon(Icons.receipt_long),
+            label: 'Đơn hàng',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.person_outline),
+            activeIcon: Icon(Icons.person),
+            label: 'Tài khoản',
+          ),
         ],
-        currentIndex: _calculateSelectedIndex(context),
+        currentIndex: selectedIndex,
         onTap: (index) => _onItemTapped(index, context),
-        type: BottomNavigationBarType.fixed, // Để label luôn hiển thị
+        type: BottomNavigationBarType.fixed,
         selectedItemColor: Theme.of(context).primaryColor,
         unselectedItemColor: Colors.grey,
+        showUnselectedLabels: true,
       ),
     );
   }

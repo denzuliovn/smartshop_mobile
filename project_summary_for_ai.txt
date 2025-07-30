@@ -1,0 +1,3557 @@
+================================================================================
+TÓM TẮT DỰ ÁN FLUTTER - SMARTSHOP MOBILE
+================================================================================
+Tạo lúc: 2025-07-28 23:53:49
+
+Dưới đây là toàn bộ code cần thiết của dự án. Hãy phân tích và chuẩn bị để tiếp tục hướng dẫn tôi.
+
+
+Bối cảnh: Tôi đang phát triển một ứng dụng di động thương mại điện tử tên là "SmartShop" bằng Flutter. Bạn sẽ đóng vai trò là chuyên gia lập trình Flutter, tiếp tục hướng dẫn tôi hoàn thành dự án này. Dự án được xây dựng dựa trên mã nguồn của một website hiện có với backend là Node.js/GraphQL. Toàn bộ giao diện và các luồng chức năng cơ bản đã được xây dựng, và chúng ta đang trong giai đoạn kết nối giao diện với API thật.
+
+Nhiệm vụ của bạn: Hướng dẫn tôi từng bước để hoàn thành các tính năng còn lại, gỡ lỗi và tối ưu hóa ứng dụng. Hãy duy trì cách làm việc tương tác: bạn đưa ra hướng dẫn cho một bước, tôi thực hiện, và sau đó tôi sẽ nói "tiếp tục" để bạn hướng dẫn bước tiếp theo.
+
+Dưới đây là toàn bộ thông tin về dự án tính đến thời điểm hiện tại.
+
+---
+
+### I. CHECKLIST TIẾN ĐỘ DỰ ÁN
+
+- ✅ **Phase 1 & 2:** Nền tảng và Giao diện (Đã hoàn thành)
+- ⏳ **Phase 3:** Kết nối Backend (Đang thực hiện)
+  - ✅ **3.1 - 3.4:** Xác thực, Sản phẩm, Giỏ hàng, Đơn hàng (Đã hoàn thành)
+  - ⬜ **3.5:** Kết nối các Tính năng Phụ (Bước tiếp theo)
+- ⬜ **Phase 4:** Hoàn thiện & Tối ưu (Chưa bắt đầu)
+
+---
+
+### II. TOÀN BỘ CODE CỦA DỰ ÁN
+
+================================================================================
+FILE: pubspec.yaml
+================================================================================
+name: smartshop_mobile
+description: "A new Flutter project."
+publish_to: 'none'
+version: 1.0.0+1
+
+environment:
+  sdk: '>=3.4.0 <4.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  # UI & Tiện ích
+  cupertino_icons: ^1.0.8
+  google_fonts: ^6.2.1
+  intl: ^0.19.0
+  cached_network_image: ^3.3.1
+  collection: ^1.18.0 # Thêm collection để dùng firstWhereOrNull
+  
+  # Quản lý trạng thái
+  flutter_riverpod: ^2.5.1
+
+  # Điều hướng
+  go_router: ^14.2.0
+
+  graphql_flutter: ^5.2.0-beta.6
+
+  # Lưu trữ bảo mật
+  # Dùng để lưu trữ token và thông tin người dùng
+  flutter_secure_storage: ^9.2.2 
+
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+
+  flutter_lints: ^4.0.0
+
+flutter:
+  uses-material-design: true
+  assets:
+    - assets/
+
+================================================================================
+END OF FILE: pubspec.yaml
+================================================================================
+
+================================================================================
+FILE: lib/main.dart
+================================================================================
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:graphql_flutter/graphql_flutter.dart';
+import 'package:smartshop_mobile/core/api/graphql_client.dart';
+import 'package:smartshop_mobile/core/theme/theme.dart';
+import 'package:smartshop_mobile/router.dart';
+
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await initHiveForFlutter();
+  
+  runApp(
+    const ProviderScope(
+      child: MyApp(),
+    ),
+  );
+}
+
+class MyApp extends ConsumerWidget {
+  const MyApp({super.key});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final router = ref.watch(routerProvider);
+    final client = ref.watch(graphqlClientProvider);
+
+    return GraphQLProvider(
+      client: ValueNotifier(client),
+      child: MaterialApp.router(
+        title: 'SmartShop',
+        theme: AppTheme.lightTheme,
+        debugShowCheckedModeBanner: false,
+        routerConfig: router,
+      ),
+    );
+  }
+}
+
+================================================================================
+END OF FILE: lib/main.dart
+================================================================================
+
+================================================================================
+FILE: lib/router.dart
+================================================================================
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
+import 'package:smartshop_mobile/features/auth/application/auth_provider.dart';
+import 'package:smartshop_mobile/features/auth/presentation/screens/forgot_password_screen.dart';
+import 'package:smartshop_mobile/features/auth/presentation/screens/login_screen.dart';
+import 'package:smartshop_mobile/features/auth/presentation/screens/register_screen.dart';
+import 'package:smartshop_mobile/features/cart/presentation/screens/cart_screen.dart';
+import 'package:smartshop_mobile/features/cart/presentation/screens/checkout_screen.dart';
+import 'package:smartshop_mobile/features/products/presentation/screens/brands_screen.dart';
+import 'package:smartshop_mobile/features/products/presentation/screens/categories_screen.dart';
+import 'package:smartshop_mobile/features/products/presentation/screens/home_screen.dart';
+import 'package:smartshop_mobile/features/products/presentation/screens/main_screen.dart';
+import 'package:smartshop_mobile/features/products/presentation/screens/product_detail_screen.dart';
+import 'package:smartshop_mobile/features/profile/presentation/screens/order_detail_screen.dart';
+import 'package:smartshop_mobile/features/profile/presentation/screens/orders_screen.dart';
+import 'package:smartshop_mobile/features/profile/presentation/screens/profile_screen.dart';
+import 'package:smartshop_mobile/features/cart/presentation/screens/order_success_screen.dart';
+import 'dart:async';
+
+
+class GoRouterRefreshStream extends ChangeNotifier {
+  GoRouterRefreshStream(Stream<dynamic> stream) {
+    notifyListeners();
+    _subscription = stream.asBroadcastStream().listen((_) => notifyListeners());
+  }
+  late final StreamSubscription<dynamic> _subscription;
+
+  @override
+  void dispose() {
+    _subscription.cancel();
+    super.dispose();
+  }
+}
+
+final routerProvider = Provider<GoRouter>((ref) {
+  final authNotifier = ref.watch(authProvider.notifier);
+  final rootNavigatorKey = GlobalKey<NavigatorState>();
+
+  return GoRouter(
+    navigatorKey: rootNavigatorKey,
+    initialLocation: '/login',
+    refreshListenable: GoRouterRefreshStream(authNotifier.stream),
+    routes: [
+      // --- SỬA LẠI SHELLROUTE Ở ĐÂY ---
+      ShellRoute(
+        navigatorKey: GlobalKey<NavigatorState>(), // Key riêng cho các tab
+        builder: (context, state, child) {
+          return MainScreen(child: child);
+        },
+        routes: [
+          // Route con không bắt đầu bằng dấu '/'
+          GoRoute(
+            path: '/', 
+            builder: (context, state) => const HomeScreen()
+          ),
+          GoRoute(
+            path: '/categories', 
+            builder: (context, state) => const CategoriesScreen()
+          ),
+          GoRoute(
+            path: '/brands', 
+            builder: (context, state) => const BrandsScreen()
+          ),
+          GoRoute(
+            path: '/profile', // SỬA: Bỏ dấu '/' ở đầu, nhưng vẫn giữ để điều hướng
+            builder: (context, state) => const ProfileScreen()
+          ),
+        ],
+      ),
+      
+      // Các route không có BottomNavBar sẽ nằm ngoài ShellRoute
+      GoRoute(
+        path: '/product/:id',
+        builder: (context, state) {
+          final productId = state.pathParameters['id']!;
+          return ProductDetailScreen(productId: productId);
+        },
+      ),
+      GoRoute(path: '/login', builder: (context, state) => const LoginScreen()),
+      GoRoute(path: '/register', builder: (context, state) => const RegisterScreen()),
+      GoRoute(path: '/forgot-password', builder: (context, state) => const ForgotPasswordScreen()),
+      GoRoute(path: '/cart', builder: (context, state) => const CartScreen()),
+      GoRoute(path: '/checkout', builder: (context, state) => const CheckoutScreen()),
+      GoRoute(path: '/orders', builder: (context, state) => const OrdersScreen()),
+      GoRoute(
+        path: '/orders/:orderNumber',
+        builder: (context, state) {
+          final orderNumber = state.pathParameters['orderNumber']!;
+          return OrderDetailScreen(orderNumber: orderNumber);
+        },
+      ),
+      GoRoute(
+      path: '/order-success/:orderNumber',
+      builder: (context, state) {
+        final orderNumber = state.pathParameters['orderNumber']!;
+        return OrderSuccessScreen(orderNumber: orderNumber);
+      },
+      ),
+
+    ],
+    redirect: (context, state) {
+      final authState = ref.read(authProvider);
+      final isLoggedIn = authState is Authenticated;
+      final loggingIn = state.matchedLocation == '/login' || 
+                        state.matchedLocation == '/register' || 
+                        state.matchedLocation == '/forgot-password';
+
+      if (!isLoggedIn && !loggingIn) return '/login';
+      if (isLoggedIn && loggingIn) return '/';
+      
+      return null;
+    },
+  );
+});
+
+================================================================================
+END OF FILE: lib/router.dart
+================================================================================
+
+================================================================================
+FILE: lib/core/api/graphql_client.dart
+================================================================================
+import 'dart:convert';
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:graphql_flutter/graphql_flutter.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:smartshop_mobile/core/constants/api_constants.dart';
+
+/// Riverpod provider để cung cấp GraphQLClient cho toàn ứng dụng.
+final graphqlClientProvider = Provider<GraphQLClient>((ref) {
+  return GraphQLConfig.initializeClient(ref);
+});
+
+class GraphQLConfig {
+  static const FlutterSecureStorage _secureStorage = FlutterSecureStorage();
+
+  static final HttpLink httpLink = HttpLink(
+    ApiConstants.graphqlUrl,
+  );
+
+  static Future<String?> _getToken() async {
+    try {
+      return await _secureStorage.read(key: 'smartshop_token');
+    } catch (e) {
+      debugPrint("Không thể đọc token: $e");
+      return null;
+    }
+  }
+
+  static final AuthLink authLink = AuthLink(
+    getToken: () async {
+      final token = await _getToken();
+      return token != null ? 'Bearer $token' : null;
+    },
+  );
+
+  static final Link link = authLink.concat(httpLink);
+
+  static GraphQLClient initializeClient(Ref ref) {
+    ValueNotifier<GraphQLClient> client = ValueNotifier(
+      GraphQLClient(
+        link: link,
+        cache: GraphQLCache(store: HiveStore()),
+      ),
+    );
+    return client.value;
+  }
+
+  static Future<void> setToken(String token, dynamic user) async {
+    await _secureStorage.write(key: 'smartshop_token', value: token);
+    await _secureStorage.write(key: 'smartshop_user', value: jsonEncode(user));
+  }
+
+  static Future<void> clearToken() async {
+    await _secureStorage.deleteAll();
+  }
+}
+
+================================================================================
+END OF FILE: lib/core/api/graphql_client.dart
+================================================================================
+
+================================================================================
+FILE: lib/core/constants/api_constants.dart
+================================================================================
+class ApiConstants {
+  // QUAN TRỌNG:
+  // - Nếu chạy trên MÁY ẢO ANDROID, dùng: "http://10.0.2.2:4000/"  static const String graphqlUrl = "http://10.0.2.2:4000/"; 
+  // - Nếu chạy trên MÁY ẢO IOS, dùng: "http://localhost:4000/"
+  // - Nếu chạy trên MÁY THẬT (cùng mạng WiFi), dùng IP LAN của máy tính. 10.12.3.16         192.168.1.9
+  //   (Mở cmd/terminal, gõ `ipconfig` (Windows) hoặc `ifconfig` (macOS/Linux))
+  static const String graphqlUrl = "http://192.168.1.9:4000/"; 
+}
+
+================================================================================
+END OF FILE: lib/core/constants/api_constants.dart
+================================================================================
+
+================================================================================
+FILE: lib/core/mock_data/mock_data.dart
+================================================================================
+import 'models.dart';
+
+// ----- MOCK DATA -----
+
+final mockUser = User(
+  id: 'customer1',
+  username: 'manhduc',
+  email: 'customer1@gmail.com',
+  firstName: 'Manh Duc',
+  lastName: 'Tran',
+  role: 'customer',
+  avatarUrl: 'https://res.cloudinary.com/drwdwymud/image/upload/v1752117816/duc_iezqfz.jpg',
+);
+    
+final mockAdmin = User(
+  id: 'admin1',
+  username: 'admin',
+  email: 'admin@smartshop.com',
+  firstName: 'Admin',
+  lastName: 'User',
+  role: 'admin',
+  avatarUrl: 'https://i.pravatar.cc/150?u=admin1',
+);
+
+// --- Categories ---
+final mockCategories = [
+  Category(id: 'cat1', name: 'Smart Phones', imageUrl: 'https://cdn-icons-png.flaticon.com/128/244/244210.png'),
+  Category(id: 'cat2', name: 'Laptop', imageUrl: 'https://cdn-icons-png.flaticon.com/512/428/428001.png'),
+  Category(id: 'cat3', name: 'headphone', imageUrl: 'https://cdn-icons-png.flaticon.com/128/8407/8407995.png'),
+  Category(id: 'cat4', name: 'tablet', imageUrl: 'https://cdn-icons-png.flaticon.com/128/64/64828.png'),
+  Category(id: 'cat5', name: 'Smart Watch', imageUrl: 'https://cdn-icons-png.flaticon.com/128/7361/7361546.png'),
+];
+
+// --- Brands ---
+final mockBrands = [
+  Brand(id: 'brand1', name: 'Apple', logoUrl: 'https://cdn-icons-png.flaticon.com/512/0/747.png'),
+  Brand(id: 'brand2', name: 'Samsung', logoUrl: 'https://cdn-icons-png.flaticon.com/512/5969/5969249.png'),
+  Brand(id: 'brand3', name: 'Xiaomi', logoUrl: 'https://cdn-icons-png.flaticon.com/512/882/882721.png'),
+  Brand(id: 'brand4', name: 'Sony', logoUrl: 'https://cdn-icons-png.flaticon.com/512/882/882718.png'),
+  Brand(id: 'brand5', name: 'Dell', logoUrl: 'https://cdn-icons-png.flaticon.com/512/882/882743.png'),
+];
+
+// --- Products ---
+final mockProducts = [
+  Product(
+    id: 'prod1',
+    name: 'iPhone 15 Pro Max 256GB - Titan Tự Nhiên',
+    description: 'iPhone 15 Pro. Rất Pro. Chip A17 Pro. Nút Tác vụ. Cổng kết nối USB‑C. Tất cả trong một thiết kế bằng titan chuẩn hàng không vũ trụ, bền chắc mà lại nhẹ. Đây là mẫu iPhone Pro nhẹ nhất từ trước đến nay.',
+    price: 28990000,
+    originalPrice: 34990000,
+    images: ['https://phonesdata.com/files/models/Apple-iPhone-15-Pro-Max-581.jpg','https://phonesdata.com/files/models/Apple-iPhone-15-Pro-Max-376.jpg'],
+    stock: 50,
+    isFeatured: true,
+    category: mockCategories[0],
+    brand: mockBrands[0]
+  ),
+  Product(
+    id: 'prod2',
+    name: 'Samsung Galaxy S24 Ultra 12GB 512GB - Xanh Titan',
+    description: 'Galaxy AI is here. Tìm kiếm nhanh hơn, giao tiếp thông minh hơn, sáng tạo dễ dàng hơn. Cùng với khung titan bền bỉ và camera 200MP xuất sắc.',
+    price: 30490000,
+    originalPrice: 37490000,
+    images: ['https://phonesdata.com/files/models/Samsung-Galaxy-S24-Ultra-2.jpg', 'https://phonesdata.com/files/models/Samsung-Galaxy-S24-Ultra-3.jpg', 'https://phonesdata.com/files/models/Samsung-Galaxy-S24-Ultra-7.jpg'],
+    stock: 30,
+    isFeatured: true,
+    category: mockCategories[0],
+    brand: mockBrands[1]
+  ),
+  Product(
+    id: 'prod3',
+    name: 'MacBook Pro 14 M3 Pro 18GB/512GB - Space Black',
+    description: 'MacBook Pro bứt phá với chip M3, M3 Pro và M3 Max. Công nghệ 3 nanometer và kiến trúc GPU hoàn toàn mới giúp đây trở thành những con chip tiên tiến nhất từng được chế tạo cho máy tính cá nhân.',
+    price: 52490000,
+    originalPrice: 55990000,
+    images: ['https://res.cloudinary.com/drwdwymud/image/upload/v1752117815/prod3_wmqytg.jpg'],
+    stock: 25,
+    isFeatured: true,
+    category: mockCategories[1],
+    brand: mockBrands[0]
+  ),
+  Product(
+    id: 'prod4',
+    name: 'Tai nghe Sony WH-1000XM5 - Chống ồn đỉnh cao',
+    description: 'Tai nghe chống ồn tốt nhất của chúng tôi vừa được cải tiến để mang lại cho bạn trải nghiệm nghe trọn vẹn hơn nữa. Tận hưởng chất lượng âm thanh và cuộc gọi vượt trội.',
+    price: 7990000,
+    images: ['https://res.cloudinary.com/drwdwymud/image/upload/v1752117816/prod4_pahclv.jpg'],
+    stock: 60,
+    isFeatured: false,
+    category: mockCategories[4],
+    brand: mockBrands[3]
+  ),
+];
+
+final mockCartItems = [
+  CartItem(
+    id: 'cartItem1',
+    product: mockProducts[0],
+    quantity: 1,
+    unitPrice: mockProducts[0].price,
+    totalPrice: mockProducts[0].price * 1,
+  ),
+  CartItem(
+    id: 'cartItem2',
+    product: mockProducts[2],
+    quantity: 2,
+    unitPrice: mockProducts[2].price,
+    totalPrice: mockProducts[2].price * 2,
+  ),
+];
+
+
+// --- Orders ---
+final mockOrders = [
+  Order(
+    id: 'order1',
+    orderNumber: 'SS20240720001',
+    orderDate: DateTime.now().subtract(const Duration(days: 3)),
+    status: 'delivered',
+    items: [
+      OrderItem(
+        id: 'item1',
+        product: mockProducts[0],
+        productName: mockProducts[0].name,   // Thêm vào
+        productSku: 'IPH15PRO001',           // Thêm vào
+        quantity: 1,
+        priceAtOrder: 28990000,
+      ),
+    ],
+    totalAmount: 28990000,
+  ),
+  Order(
+    id: 'order2',
+    orderNumber: 'SS20240718005',
+    orderDate: DateTime.now().subtract(const Duration(days: 5)),
+    status: 'shipping',
+    items: [
+      OrderItem(
+        id: 'item2',
+        product: mockProducts[3],
+        productName: mockProducts[3].name,   // Thêm vào
+        productSku: 'SONYWH1000XM5',         // Thêm vào
+        quantity: 1,
+        priceAtOrder: 7990000,
+      ),
+      OrderItem(
+        id: 'item3',
+        product: mockProducts[1],
+        productName: mockProducts[1].name,   // Thêm vào
+        productSku: 'SAM24ULTRA001',         // Thêm vào
+        quantity: 1,
+        priceAtOrder: 30490000,
+      ),
+    ],
+    totalAmount: 38480000,
+  ),
+  Order(
+    id: 'order3',
+    orderNumber: 'SS20240715002',
+    orderDate: DateTime.now().subtract(const Duration(days: 8)),
+    status: 'cancelled',
+    items: [
+      OrderItem(
+        id: 'item4',
+        product: mockProducts[2],
+        productName: mockProducts[2].name,  // Thêm vào
+        productSku: 'MBP14M3001',          // Thêm vào
+        quantity: 1,
+        priceAtOrder: 52490000,
+      ),
+    ],
+    totalAmount: 52490000,
+  ),
+];
+
+
+================================================================================
+END OF FILE: lib/core/mock_data/mock_data.dart
+================================================================================
+
+================================================================================
+FILE: lib/core/mock_data/models.dart
+================================================================================
+class User {
+  final String id, username, email, firstName, lastName, role, avatarUrl;
+  User({
+    required this.id,
+    required this.username,
+    required this.email,
+    required this.firstName,
+    required this.lastName,
+    required this.role,
+    required this.avatarUrl,
+  });
+}
+
+class Category {
+  final String id, name;
+  final String? imageUrl;
+
+  Category({required this.id, required this.name, this.imageUrl});
+  
+  factory Category.fromJson(Map<String, dynamic> json) {
+    return Category(
+      id: json['_id'] ?? '',
+      name: json['name'] ?? 'No Category',
+      imageUrl: json['image'],
+    );
+  }
+}
+
+class Brand {
+  final String id, name;
+  final String? logoUrl;
+  
+  Brand({required this.id, required this.name, this.logoUrl});
+
+  factory Brand.fromJson(Map<String, dynamic> json) {
+    return Brand(
+      id: json['_id'] ?? '',
+      name: json['name'] ?? 'No Brand',
+      logoUrl: json['logo'],
+    );
+  }
+}
+
+class Product {
+  final String id, name, description;
+  final double price;
+  final double? originalPrice;
+  final List<String> images;
+  final int stock;
+  final bool isFeatured, isActive;
+  final Category? category;
+  final Brand? brand;
+  final double averageRating;
+  final int totalReviews;
+
+  Product({
+    required this.id,
+    required this.name,
+    required this.description,
+    required this.price,
+    this.originalPrice,
+    required this.images,
+    required this.stock,
+    this.isFeatured = false,
+    this.isActive = true,
+    this.category,
+    this.brand,
+    this.averageRating = 4.5,
+    this.totalReviews = 99,
+  });
+
+  factory Product.fromJson(Map<String, dynamic> json) {
+    final List<dynamic> imageList = json['images'] ?? [];
+    final List<String> images = imageList.map((e) => e.toString()).toList();
+
+    return Product(
+      id: json['_id'] ?? '',
+      name: json['name'] ?? 'No Name',
+      description: json['description'] ?? '',
+      price: (json['price'] as num? ?? 0).toDouble(),
+      originalPrice: (json['originalPrice'] as num?)?.toDouble(),
+      images: images,
+      stock: (json['stock'] as num? ?? 0).toInt(),
+      isFeatured: json['isFeatured'] ?? false,
+      isActive: json['isActive'] ?? true,
+      category: json['category'] != null ? Category.fromJson(json['category']) : null,
+      brand: json['brand'] != null ? Brand.fromJson(json['brand']) : null,
+      averageRating: (json['averageRating'] as num? ?? 4.5).toDouble(),
+      totalReviews: (json['totalReviews'] as num? ?? 99).toInt(),
+    );
+  }
+}
+
+class CartItem {
+  final String id;
+  final Product product;
+  int quantity;
+  final double unitPrice;
+  final double totalPrice;
+
+  CartItem({
+    required this.id,
+    required this.product,
+    required this.quantity,
+    required this.unitPrice,
+    required this.totalPrice,
+  });
+
+  // Hàm để tạo CartItem từ dữ liệu JSON của API
+  factory CartItem.fromJson(Map<String, dynamic> json) {
+    return CartItem(
+      id: json['_id'],
+      product: Product.fromJson(json['product']),
+      quantity: (json['quantity'] as num).toInt(),
+      unitPrice: (json['unitPrice'] as num).toDouble(),
+      totalPrice: (json['totalPrice'] as num).toDouble(),
+    );
+  }
+}
+
+class Cart {
+  final List<CartItem> items;
+  final int totalItems;
+  final double subtotal;
+
+  Cart({
+    required this.items,
+    required this.totalItems,
+    required this.subtotal,
+  });
+
+  // Trạng thái giỏ hàng rỗng
+  factory Cart.empty() {
+    return Cart(items: [], totalItems: 0, subtotal: 0);
+  }
+
+  // Hàm để tạo Cart từ dữ liệu JSON của API
+  factory Cart.fromJson(Map<String, dynamic> json) {
+    final List<dynamic> itemJsonList = json['items'] ?? [];
+    return Cart(
+      items: itemJsonList.map((itemJson) => CartItem.fromJson(itemJson)).toList(),
+      totalItems: (json['totalItems'] as num? ?? 0).toInt(),
+      subtotal: (json['subtotal'] as num? ?? 0).toDouble(),
+    );
+  }
+}
+
+class OrderItem {
+  final String id;
+  final String productName;
+  final String productSku;
+  final Product? product;
+  final int quantity;
+  final double priceAtOrder;
+
+  OrderItem({
+    required this.id,
+    required this.productName,
+    required this.productSku,
+    this.product,
+    required this.quantity,
+    required this.priceAtOrder,
+  });
+
+  factory OrderItem.fromJson(Map<String, dynamic> json) {
+    return OrderItem(
+      id: json['_id'],
+      productName: json['productName'],
+      productSku: json['productSku'],
+      product: json['product'] != null ? Product.fromJson(json['product']) : null,
+      quantity: (json['quantity'] as num).toInt(),
+      priceAtOrder: (json['unitPrice'] as num).toDouble(),
+    );
+  }
+}
+
+
+class Order {
+  final String id;
+  final String orderNumber;
+  final DateTime orderDate;
+  final String status;
+  final List<OrderItem> items;
+  final double totalAmount;
+
+  Order({
+    required this.id,
+    required this.orderNumber,
+    required this.orderDate,
+    required this.status,
+    required this.items,
+    required this.totalAmount,
+  });
+
+  factory Order.fromJson(Map<String, dynamic> json) {
+    final List<dynamic> itemJsonList = json['items'] ?? [];
+    
+    // --- LOGIC XỬ LÝ DATE MẠNH MẼ HƠN ---
+    DateTime parsedDate;
+    final dynamic dateValue = json['orderDate'];
+
+    if (dateValue is num) {
+      // Trường hợp 1: Backend trả về số (timestamp)
+      parsedDate = DateTime.fromMillisecondsSinceEpoch(dateValue.toInt());
+    } else if (dateValue is String) {
+      // Trường hợp 2: Backend trả về chuỗi
+      // Thử parse nó như một con số trước
+      final intTimestamp = int.tryParse(dateValue);
+      if (intTimestamp != null) {
+        // Nếu parse thành công -> đây là chuỗi timestamp
+        parsedDate = DateTime.fromMillisecondsSinceEpoch(intTimestamp);
+      } else {
+        // Nếu không, thử parse như một chuỗi date ISO
+        try {
+          parsedDate = DateTime.parse(dateValue);
+        } catch (e) {
+          // Nếu tất cả đều thất bại, dùng ngày hiện tại
+          parsedDate = DateTime.now();
+        }
+      }
+    } else {
+      // Trường hợp 3: Kiểu dữ liệu không xác định hoặc null
+      parsedDate = DateTime.now();
+    }
+    // --- KẾT THÚC LOGIC XỬ LÝ DATE ---
+
+    return Order(
+      id: json['_id'] ?? 'N/A',
+      orderNumber: json['orderNumber'] ?? 'N/A',
+      orderDate: parsedDate,
+      status: json['status'] ?? 'pending',
+      items: itemJsonList.map((item) => OrderItem.fromJson(item)).toList(),
+      totalAmount: (json['totalAmount'] as num? ?? 0).toDouble(),
+    );
+  }
+}
+
+
+================================================================================
+END OF FILE: lib/core/mock_data/models.dart
+================================================================================
+
+================================================================================
+FILE: lib/core/theme/theme.dart
+================================================================================
+import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
+
+class AppTheme {
+  static final ThemeData lightTheme = ThemeData(
+    // Bảng màu chính
+    primarySwatch: Colors.blue,
+    scaffoldBackgroundColor: const Color(0xFFF7F8FC), // Một màu xám rất nhạt
+
+    // Font chữ - Dùng Inter như trên web
+    fontFamily: GoogleFonts.inter().fontFamily,
+
+    // Chủ đề cho AppBar
+    appBarTheme: AppBarTheme(
+      backgroundColor: Colors.white,
+      elevation: 0.5,
+      iconTheme: const IconThemeData(color: Colors.black87),
+      titleTextStyle: GoogleFonts.poppins(
+        color: Colors.black87,
+        fontSize: 20,
+        fontWeight: FontWeight.w600,
+      ),
+      centerTitle: true,
+    ),
+
+    // Chủ đề cho các nút
+    elevatedButtonTheme: ElevatedButtonThemeData(
+      style: ElevatedButton.styleFrom(
+        backgroundColor: Colors.blue[600], // Màu nút chính
+        foregroundColor: Colors.white, // Màu chữ
+        padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 24),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
+        ),
+        elevation: 2,
+        shadowColor: Colors.blue.withAlpha(51),
+        textStyle: const TextStyle(fontWeight: FontWeight.bold),
+      ),
+    ),
+    
+    // Chủ đề cho các ô nhập liệu
+    inputDecorationTheme: InputDecorationTheme(
+      filled: true,
+      fillColor: Colors.grey[100],
+      border: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: BorderSide.none,
+      ),
+      focusedBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: BorderSide(color: Colors.blue[600]!, width: 2),
+      ),
+      labelStyle: const TextStyle(color: Colors.grey),
+    ),
+
+    // Chủ đề cho Card
+    cardTheme: CardThemeData(
+      elevation: 0,
+      clipBehavior: Clip.antiAlias,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+        side: BorderSide(color: Colors.grey[200]!),
+      ),
+    ),
+
+    // Chủ đề cho Text
+    textTheme: TextTheme(
+      displayLarge: GoogleFonts.poppins(fontSize: 57, fontWeight: FontWeight.bold),
+      displayMedium: GoogleFonts.poppins(fontSize: 45, fontWeight: FontWeight.bold),
+      displaySmall: GoogleFonts.poppins(fontSize: 36, fontWeight: FontWeight.bold),
+      headlineLarge: GoogleFonts.poppins(fontSize: 32, fontWeight: FontWeight.w600),
+      headlineMedium: GoogleFonts.poppins(fontSize: 28, fontWeight: FontWeight.w600),
+      headlineSmall: GoogleFonts.poppins(fontSize: 24, fontWeight: FontWeight.w600),
+      titleLarge: GoogleFonts.inter(fontSize: 22, fontWeight: FontWeight.bold),
+      titleMedium: GoogleFonts.inter(fontSize: 16, fontWeight: FontWeight.w500),
+      titleSmall: GoogleFonts.inter(fontSize: 14, fontWeight: FontWeight.w500),
+      bodyLarge: GoogleFonts.inter(fontSize: 16),
+      bodyMedium: GoogleFonts.inter(fontSize: 14),
+      bodySmall: GoogleFonts.inter(fontSize: 12),
+      labelLarge: GoogleFonts.inter(fontSize: 14, fontWeight: FontWeight.bold),
+      labelMedium: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.bold),
+      labelSmall: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.bold),
+    ),
+  );
+}
+
+================================================================================
+END OF FILE: lib/core/theme/theme.dart
+================================================================================
+
+================================================================================
+FILE: lib/core/utils/formatter.dart
+================================================================================
+import 'package:intl/intl.dart';
+
+class AppFormatters {
+  static final currency = NumberFormat.currency(locale: 'vi_VN', symbol: '₫');
+  
+  static String formatDate(DateTime? date) {
+    if (date == null) return 'N/A';
+    return DateFormat('dd/MM/yyyy HH:mm').format(date);
+  }
+}
+
+================================================================================
+END OF FILE: lib/core/utils/formatter.dart
+================================================================================
+
+================================================================================
+FILE: lib/features/auth/application/auth_provider.dart
+================================================================================
+import 'dart:async';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:smartshop_mobile/core/api/graphql_client.dart';
+import 'package:smartshop_mobile/core/mock_data/models.dart';
+import 'package:smartshop_mobile/features/auth/data/auth_repository.dart';
+
+// Định nghĩa các trạng thái
+abstract class AuthState { const AuthState(); }
+class AuthLoading extends AuthState {}
+class Authenticated extends AuthState {
+  final User user;
+  const Authenticated(this.user);
+}
+class Unauthenticated extends AuthState {}
+class AuthError extends AuthState {
+  final String message;
+  const AuthError(this.message);
+}
+
+// Provider chính
+final authProvider = StateNotifierProvider<AuthNotifier, AuthState>((ref) {
+  return AuthNotifier(ref);
+});
+
+// Notifier xử lý logic
+class AuthNotifier extends StateNotifier<AuthState> {
+  final Ref _ref;
+  
+  AuthNotifier(this._ref) : super(AuthLoading()) {
+    _checkAuthStatus();
+  }
+  
+  Future<void> _checkAuthStatus() async {
+    await Future.delayed(const Duration(milliseconds: 500));
+    state = Unauthenticated();
+  }
+
+  Future<void> login(String username, String password) async {
+    state = AuthLoading();
+    try {
+      final responseData = await _ref.read(authRepositoryProvider).login(username, password);
+      final userMap = responseData['user'];
+      final token = responseData['jwt'];
+
+      await GraphQLConfig.setToken(token, userMap);
+
+      final user = User(
+        id: userMap['_id'],
+        username: userMap['username'],
+        email: userMap['email'],
+        firstName: userMap['firstName'],
+        lastName: userMap['lastName'],
+        role: userMap['role'],
+        avatarUrl: 'https://i.pravatar.cc/150?u=${userMap['_id']}',
+      );
+      
+      state = Authenticated(user);
+
+    } catch (e) {
+      state = AuthError(e.toString().replaceFirst("Exception: ", ""));
+      await Future.delayed(const Duration(seconds: 2));
+      if (mounted) state = Unauthenticated();
+    }
+  }
+  
+  Future<void> register({
+    required String username,
+    required String email,
+    required String password,
+    required String firstName,
+    required String lastName
+  }) async {
+    state = AuthLoading();
+    try {
+      await _ref.read(authRepositoryProvider).register(
+        username: username, email: email, password: password,
+        firstName: firstName, lastName: lastName
+      );
+      state = Unauthenticated();
+    } catch(e) {
+      state = AuthError(e.toString().replaceFirst("Exception: ", ""));
+      await Future.delayed(const Duration(seconds: 2));
+      if (mounted) state = Unauthenticated();
+    }
+  }
+
+  // --- HÀM CÒN THIẾU ĐÃ ĐƯỢC THÊM VÀO ĐÂY ---
+  Future<void> forgotPassword(String email) async {
+    state = AuthLoading();
+    try {
+      // Giả lập việc gửi thành công
+      await Future.delayed(const Duration(seconds: 1));
+      state = Unauthenticated();
+    } catch (e) {
+      state = AuthError(e.toString().replaceFirst("Exception: ", ""));
+      await Future.delayed(const Duration(seconds: 2));
+      if (mounted) state = Unauthenticated();
+    }
+  }
+  
+  Future<void> logout() async {
+    state = AuthLoading();
+    await GraphQLConfig.clearToken();
+    await Future.delayed(const Duration(milliseconds: 500));
+    state = Unauthenticated();
+  }
+}
+
+================================================================================
+END OF FILE: lib/features/auth/application/auth_provider.dart
+================================================================================
+
+================================================================================
+FILE: lib/features/auth/data/auth_graphql.dart
+================================================================================
+class AuthGraphQL {
+  static const String loginMutation = r'''
+    mutation Login($input: LoginInput!) {
+      login(input: $input) {
+        success
+        message
+        data {
+          jwt
+          user { _id username email firstName lastName role }
+        }
+      }
+    }
+  ''';
+
+  static const String registerMutation = r'''
+    mutation Register($input: RegisterInput!) {
+      register(input: $input) {
+        success
+        message
+      }
+    }
+  ''';
+}
+
+================================================================================
+END OF FILE: lib/features/auth/data/auth_graphql.dart
+================================================================================
+
+================================================================================
+FILE: lib/features/auth/data/auth_repository.dart
+================================================================================
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:graphql_flutter/graphql_flutter.dart';
+import 'package:smartshop_mobile/core/api/graphql_client.dart';
+import 'package:smartshop_mobile/features/auth/data/auth_graphql.dart';
+
+// Provider cho repository
+final authRepositoryProvider = Provider<AuthRepository>((ref) {
+  final client = ref.watch(graphqlClientProvider);
+  return AuthRepository(client: client);
+});
+
+class AuthRepository {
+  final GraphQLClient client;
+  AuthRepository({required this.client});
+
+  Future<Map<String, dynamic>> login(String username, String password) async {
+    final options = MutationOptions(
+      document: gql(AuthGraphQL.loginMutation),
+      variables: {
+        'input': {'username': username, 'password': password}
+      },
+    );
+    final result = await client.mutate(options);
+
+    if (result.hasException) {
+      throw Exception(result.exception.toString());
+    }
+    
+    final response = result.data?['login'];
+    if (response == null || !response['success']) {
+      throw Exception(response['message'] ?? 'Đăng nhập thất bại');
+    }
+    
+    return response['data'];
+  }
+  
+  Future<void> register({
+    required String username,
+    required String email,
+    required String password,
+    required String firstName,
+    required String lastName,
+  }) async {
+    final options = MutationOptions(
+      document: gql(AuthGraphQL.registerMutation),
+      variables: {
+        'input': {
+          'username': username,
+          'email': email,
+          'password': password,
+          'firstName': firstName,
+          'lastName': lastName
+        }
+      },
+    );
+
+    final result = await client.mutate(options);
+
+    if (result.hasException) {
+      throw Exception(result.exception.toString());
+    }
+
+    final response = result.data?['register'];
+    if (response == null || !response['success']) {
+      throw Exception(response['message'] ?? 'Đăng ký thất bại');
+    }
+  }
+}
+
+================================================================================
+END OF FILE: lib/features/auth/data/auth_repository.dart
+================================================================================
+
+================================================================================
+FILE: lib/features/auth/data/product_graphql.dart
+================================================================================
+class ProductGraphQL {
+  // Fragment giúp tái sử dụng các trường dữ liệu chung cho sản phẩm
+  static const String productFragment = r'''
+    fragment ProductData on Product {
+      _id
+      name
+      description
+      price
+      originalPrice
+      images
+      stock
+      isFeatured
+      isActive
+      category {
+        _id
+        name
+      }
+      brand {
+        _id
+        name
+      }
+    }
+  ''';
+
+  // Query để lấy danh sách sản phẩm
+  static const String getProducts = '''
+    query GetProducts(\$first: Int, \$offset: Int) {
+      products(first: \$first, offset: \$offset) {
+        nodes {
+          ...ProductData
+        }
+        totalCount
+        hasNextPage
+      }
+    }
+    $productFragment
+  ''';
+
+  // Query để lấy sản phẩm nổi bật
+  static const String getFeaturedProducts = '''
+    query GetFeaturedProducts {
+      featuredProducts {
+        ...ProductData
+      }
+    }
+    $productFragment
+  ''';
+}
+
+================================================================================
+END OF FILE: lib/features/auth/data/product_graphql.dart
+================================================================================
+
+================================================================================
+FILE: lib/features/auth/presentation/screens/forgot_password_screen.dart
+================================================================================
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
+import 'package:smartshop_mobile/features/auth/application/auth_provider.dart';
+
+class ForgotPasswordScreen extends ConsumerWidget {
+  const ForgotPasswordScreen({super.key});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final emailController = TextEditingController();
+    final authState = ref.watch(authProvider);
+
+    return Scaffold(
+       backgroundColor: Colors.white,
+      appBar: AppBar(
+        title: const Text('Quên Mật khẩu'),
+      ),
+      body: Padding(
+        padding: const EdgeInsets.all(24.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text(
+              'Nhập email đã đăng ký của bạn. Chúng tôi sẽ gửi một liên kết để đặt lại mật khẩu.',
+              style: Theme.of(context).textTheme.titleMedium?.copyWith(color: Colors.grey[700]),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 32),
+            TextField(controller: emailController, decoration: const InputDecoration(labelText: 'Email')),
+            const SizedBox(height: 32),
+            ElevatedButton(
+              onPressed: authState is AuthLoading ? null : () {
+                 ref.read(authProvider.notifier).forgotPassword(emailController.text);
+                 ScaffoldMessenger.of(context).showSnackBar(
+                   const SnackBar(content: Text('Nếu email tồn tại, hướng dẫn đã được gửi đi!'))
+                 );
+                 context.pop();
+              },
+              child: authState is AuthLoading
+                    ? const SizedBox(width: 24, height: 24, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                    : const Text('Gửi hướng dẫn'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+} 
+
+================================================================================
+END OF FILE: lib/features/auth/presentation/screens/forgot_password_screen.dart
+================================================================================
+
+================================================================================
+FILE: lib/features/auth/presentation/screens/login_screen.dart
+================================================================================
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
+import 'package:smartshop_mobile/features/auth/application/auth_provider.dart';
+
+class LoginScreen extends ConsumerStatefulWidget {
+  const LoginScreen({super.key});
+
+  @override
+  ConsumerState<LoginScreen> createState() => _LoginScreenState();
+}
+
+class _LoginScreenState extends ConsumerState<LoginScreen> {
+  final _usernameController = TextEditingController();
+  // --- ĐÃ SỬA LẠI DÒNG NÀY ---
+  final _passwordController = TextEditingController(); 
+  bool _obscureText = true;
+
+  @override
+  void dispose() {
+    _usernameController.dispose();
+    _passwordController.dispose();
+    super.dispose();
+  }
+
+  void _handleLogin() {
+    if (_usernameController.text.isEmpty || _passwordController.text.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Vui lòng nhập đầy đủ tên đăng nhập và mật khẩu.'),
+          backgroundColor: Colors.orange,
+        ),
+      );
+      return;
+    }
+    ref.read(authProvider.notifier).login(
+          _usernameController.text.trim(),
+          _passwordController.text.trim(),
+        );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    ref.listen<AuthState>(authProvider, (previous, next) {
+      if (next is Authenticated) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Chào mừng ${next.user.firstName}!'), backgroundColor: Colors.green),
+        );
+        context.go('/');
+      } else if (next is AuthError) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(next.message), backgroundColor: Colors.red),
+        );
+      }
+    });
+
+    final authState = ref.watch(authProvider);
+
+    return Scaffold(
+      backgroundColor: Colors.white,
+      appBar: AppBar(
+        backgroundColor: Colors.white,
+        elevation: 0,
+        leading: IconButton(
+          icon: const Icon(Icons.close),
+          onPressed: () => context.go('/'),
+        ),
+      ),
+      body: SafeArea(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.symmetric(horizontal: 24.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              const SizedBox(height: 40),
+              Text(
+                'Chào mừng trở lại!',
+                style: Theme.of(context).textTheme.headlineMedium?.copyWith(fontWeight: FontWeight.bold),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'Đăng nhập để tiếp tục mua sắm.',
+                style: Theme.of(context).textTheme.titleMedium?.copyWith(color: Colors.grey),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 50),
+              TextField(
+                controller: _usernameController,
+                decoration: const InputDecoration(
+                  labelText: 'Tên đăng nhập / Email',
+                  prefixIcon: Icon(Icons.person_outline),
+                ),
+                keyboardType: TextInputType.emailAddress,
+                textInputAction: TextInputAction.next,
+              ),
+              const SizedBox(height: 20),
+              TextField(
+                controller: _passwordController,
+                obscureText: _obscureText,
+                decoration: InputDecoration(
+                  labelText: 'Mật khẩu',
+                  prefixIcon: const Icon(Icons.lock_outline),
+                  suffixIcon: IconButton(
+                    icon: Icon(_obscureText ? Icons.visibility_off : Icons.visibility),
+                    onPressed: () {
+                      setState(() {
+                        _obscureText = !_obscureText;
+                      });
+                    },
+                  ),
+                ),
+                 textInputAction: TextInputAction.done,
+                 onSubmitted: (_) => _handleLogin(),
+              ),
+              const SizedBox(height: 16),
+              Align(
+                alignment: Alignment.centerRight,
+                child: TextButton(
+                  onPressed: () => context.push('/forgot-password'),
+                  child: const Text('Quên mật khẩu?'),
+                ),
+              ),
+              const SizedBox(height: 24),
+              ElevatedButton(
+                onPressed: authState is AuthLoading ? null : _handleLogin,
+                child: authState is AuthLoading
+                    ? const SizedBox(width: 24, height: 24, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                    : const Text('Đăng nhập'),
+              ),
+              const SizedBox(height: 24),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Text('Chưa có tài khoản?'),
+                  TextButton(
+                    onPressed: () => context.push('/register'),
+                    child: const Text('Đăng ký ngay'),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+================================================================================
+END OF FILE: lib/features/auth/presentation/screens/login_screen.dart
+================================================================================
+
+================================================================================
+FILE: lib/features/auth/presentation/screens/register_screen.dart
+================================================================================
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
+import 'package:smartshop_mobile/features/auth/application/auth_provider.dart';
+
+class RegisterScreen extends ConsumerWidget {
+  const RegisterScreen({super.key});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final fullNameController = TextEditingController();
+    final emailController = TextEditingController();
+    final passwordController = TextEditingController();
+    
+    final authState = ref.watch(authProvider);
+
+    ref.listen<AuthState>(authProvider, (previous, next) {
+      if (next is AuthError) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(next.message), backgroundColor: Colors.red),
+        );
+      } else if (next is Unauthenticated && previous is AuthLoading) {
+         ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Đăng ký thành công! Vui lòng đăng nhập.'), backgroundColor: Colors.green),
+        );
+        context.pop();
+      }
+    });
+
+    return Scaffold(
+      backgroundColor: Colors.white,
+      appBar: AppBar(
+        title: const Text('Tạo tài khoản'),
+      ),
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.all(24.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            TextField(controller: fullNameController, decoration: const InputDecoration(labelText: 'Họ và Tên')),
+            const SizedBox(height: 16),
+            TextField(controller: emailController, decoration: const InputDecoration(labelText: 'Email')),
+            const SizedBox(height: 16),
+            TextField(controller: passwordController, decoration: const InputDecoration(labelText: 'Mật khẩu'), obscureText: true),
+            const SizedBox(height: 32),
+            ElevatedButton(
+              onPressed: authState is AuthLoading ? null : () {
+                ref.read(authProvider.notifier).register(
+                  username: emailController.text,
+                  email: emailController.text,
+                  password: passwordController.text,
+                  firstName: fullNameController.text.split(' ').first,
+                  lastName: fullNameController.text.split(' ').length > 1
+                      ? fullNameController.text.split(' ').last
+                      : '', 
+                );
+              },
+              child: authState is AuthLoading
+                    ? const SizedBox(width: 24, height: 24, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                    : const Text('Đăng ký'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+================================================================================
+END OF FILE: lib/features/auth/presentation/screens/register_screen.dart
+================================================================================
+
+================================================================================
+FILE: lib/features/cart/application/cart_provider.dart
+================================================================================
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:smartshop_mobile/core/mock_data/models.dart';
+import 'package:smartshop_mobile/features/auth/application/auth_provider.dart';
+import 'package:smartshop_mobile/features/cart/data/cart_repository.dart';
+
+final cartProvider = StateNotifierProvider<CartNotifier, AsyncValue<Cart>>((ref) {
+  final authState = ref.watch(authProvider);
+  // Chỉ tạo Notifier có khả năng tải dữ liệu khi đã đăng nhập
+  if (authState is Authenticated) {
+    return CartNotifier(ref)..loadCart();
+  }
+  // Nếu chưa đăng nhập, trả về Notifier với giỏ hàng rỗng
+  return CartNotifier(ref);
+});
+
+class CartNotifier extends StateNotifier<AsyncValue<Cart>> {
+  final Ref _ref;
+
+  CartNotifier(this._ref) : super(AsyncData(Cart.empty()));
+
+  Future<void> loadCart() async {
+    state = const AsyncValue.loading();
+    try {
+      final cart = await _ref.read(cartRepositoryProvider).getCart();
+      state = AsyncValue.data(cart);
+    } catch (e, st) {
+      state = AsyncValue.error(e, st);
+    }
+  }
+
+  Future<void> addToCart(String productId, int quantity) async {
+    try {
+      await _ref.read(cartRepositoryProvider).addToCart(productId, quantity);
+      await loadCart(); // Tải lại giỏ hàng để cập nhật UI
+    } catch (e) {
+      // Có thể hiển thị lỗi ở đây
+    }
+  }
+
+  Future<void> updateItem(String productId, int quantity) async {
+    // Không cần set loading để UI không bị giật khi bấm +/-
+    try {
+      await _ref.read(cartRepositoryProvider).updateCartItem(productId, quantity);
+      await loadCart();
+    } catch (e) {
+      // Có thể xử lý lỗi và quay lại trạng thái cũ
+    }
+  }
+
+  Future<void> removeItem(String productId) async {
+    try {
+      await _ref.read(cartRepositoryProvider).removeFromCart(productId);
+      await loadCart();
+    } catch(e) {
+      //...
+    }
+  }
+}
+
+================================================================================
+END OF FILE: lib/features/cart/application/cart_provider.dart
+================================================================================
+
+================================================================================
+FILE: lib/features/cart/data/cart_graphql.dart
+================================================================================
+class CartGraphQL {
+  static const String cartItemFragment = r'''
+    fragment CartItemData on CartItem {
+      _id
+      quantity
+      unitPrice
+      totalPrice
+      product {
+        _id
+        name
+        price
+        originalPrice
+        images
+        stock
+        isActive
+        category { name }
+        brand { name }
+      }
+    }
+  ''';
+
+  static const String getCart = '''
+    query GetCart {
+      getCart {
+        items {
+          ...CartItemData
+        }
+        totalItems
+        subtotal
+      }
+    }
+    $cartItemFragment
+  ''';
+
+  static const String getCartItemCount = r'''
+    query GetCartItemCount {
+      getCartItemCount
+    }
+  ''';
+
+  static const String addToCart = '''
+    mutation AddToCart(\$input: AddToCartInput!) {
+      addToCart(input: \$input) {
+        ...CartItemData
+      }
+    }
+    $cartItemFragment
+  ''';
+  
+  static const String updateCartItem = '''
+    mutation UpdateCartItem(\$input: UpdateCartInput!) {
+      updateCartItem(input: \$input) {
+        ...CartItemData
+      }
+    }
+    $cartItemFragment
+  ''';
+  
+  static const String removeFromCart = r'''
+    mutation RemoveFromCart($productId: ID!) {
+      removeFromCart(productId: $productId)
+    }
+  ''';
+}
+
+================================================================================
+END OF FILE: lib/features/cart/data/cart_graphql.dart
+================================================================================
+
+================================================================================
+FILE: lib/features/cart/data/cart_repository.dart
+================================================================================
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:graphql_flutter/graphql_flutter.dart';
+import 'package:smartshop_mobile/core/api/graphql_client.dart';
+import 'package:smartshop_mobile/core/mock_data/models.dart';
+import 'package:smartshop_mobile/features/cart/data/cart_graphql.dart';
+
+final cartRepositoryProvider = Provider((ref) => CartRepository(client: ref.watch(graphqlClientProvider)));
+
+class CartRepository {
+  final GraphQLClient client;
+  CartRepository({required this.client});
+
+  Future<Cart> getCart() async {
+    final options = QueryOptions(document: gql(CartGraphQL.getCart), fetchPolicy: FetchPolicy.networkOnly);
+    final result = await client.query(options);
+    if (result.hasException) throw Exception(result.exception.toString());
+    
+    final cartJson = result.data?['getCart'];
+    return cartJson != null ? Cart.fromJson(cartJson) : Cart.empty();
+  }
+
+  Future<void> addToCart(String productId, int quantity) async {
+    final options = MutationOptions(
+      document: gql(CartGraphQL.addToCart),
+      variables: {'input': {'productId': productId, 'quantity': quantity}},
+    );
+    final result = await client.mutate(options);
+    if (result.hasException) throw Exception(result.exception.toString());
+  }
+
+  Future<void> updateCartItem(String productId, int quantity) async {
+    final options = MutationOptions(
+      document: gql(CartGraphQL.updateCartItem),
+      variables: {'input': {'productId': productId, 'quantity': quantity}},
+    );
+    final result = await client.mutate(options);
+    if (result.hasException) throw Exception(result.exception.toString());
+  }
+  
+  Future<void> removeFromCart(String productId) async {
+    final options = MutationOptions(
+      document: gql(CartGraphQL.removeFromCart),
+      variables: {'productId': productId},
+    );
+    final result = await client.mutate(options);
+    if (result.hasException) throw Exception(result.exception.toString());
+  }
+}
+
+================================================================================
+END OF FILE: lib/features/cart/data/cart_repository.dart
+================================================================================
+
+================================================================================
+FILE: lib/features/cart/presentation/screens/cart_screen.dart
+================================================================================
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
+import 'package:intl/intl.dart';
+import 'package:smartshop_mobile/core/mock_data/models.dart' as model;
+import 'package:smartshop_mobile/features/cart/application/cart_provider.dart';
+import 'package:cached_network_image/cached_network_image.dart';
+
+class CartScreen extends ConsumerWidget {
+  const CartScreen({super.key});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final cartState = ref.watch(cartProvider);
+    final formatCurrency = NumberFormat.currency(locale: 'vi_VN', symbol: '₫');
+
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Giỏ hàng'),
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back),
+          onPressed: () => context.pop(),
+        ),
+      ),
+      body: cartState.when(
+        data: (cart) {
+          if (cart.items.isEmpty) {
+            return _buildEmptyCart(context);
+          }
+          return Column(
+            children: [
+              Expanded(
+                child: ListView.separated(
+                  padding: const EdgeInsets.all(16),
+                  itemCount: cart.items.length,
+                  separatorBuilder: (context, index) => const SizedBox(height: 16),
+                  itemBuilder: (context, index) {
+                    final item = cart.items[index];
+                    return _buildCartItem(context, ref, item, formatCurrency);
+                  },
+                ),
+              ),
+              _buildSummary(context, cart, formatCurrency),
+            ],
+          );
+        },
+        loading: () => const Center(child: CircularProgressIndicator()),
+        error: (err, stack) => Center(child: Text('Lỗi tải giỏ hàng: ${err.toString()}')),
+      ),
+    );
+  }
+
+  Widget _buildEmptyCart(BuildContext context) {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(Icons.shopping_cart_outlined, size: 80, color: Colors.grey[400]),
+          const SizedBox(height: 20),
+          Text('Giỏ hàng của bạn trống', style: Theme.of(context).textTheme.headlineSmall),
+          const SizedBox(height: 10),
+          Text('Hãy thêm sản phẩm để mua sắm nhé!', style: TextStyle(color: Colors.grey[600])),
+          const SizedBox(height: 30),
+          ElevatedButton(
+            onPressed: () => context.go('/'),
+            child: const Text('Tiếp tục mua sắm'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCartItem(BuildContext context, WidgetRef ref, model.CartItem item, NumberFormat formatCurrency) {
+     return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(15),
+        border: Border.all(color: Colors.grey[200]!),
+      ),
+      child: Row(
+        children: [
+          ClipRRect(
+            borderRadius: BorderRadius.circular(10),
+            child: CachedNetworkImage(
+              imageUrl: item.product.images[0],
+              width: 80,
+              height: 80,
+              fit: BoxFit.cover,
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(item.product.name, style: const TextStyle(fontWeight: FontWeight.bold), maxLines: 2, overflow: TextOverflow.ellipsis),
+                const SizedBox(height: 8),
+                Text(
+                  formatCurrency.format(item.unitPrice),
+                  style: TextStyle(color: Theme.of(context).primaryColor, fontWeight: FontWeight.bold),
+                ),
+              ],
+            ),
+          ),
+          Row(
+            children: [
+              IconButton(icon: const Icon(Icons.remove_circle_outline), onPressed: () {
+                if(item.quantity > 1) {
+                  ref.read(cartProvider.notifier).updateItem(item.product.id, item.quantity - 1);
+                } else {
+                   ref.read(cartProvider.notifier).removeItem(item.product.id);
+                }
+              }),
+              Text(item.quantity.toString(), style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+              IconButton(icon: const Icon(Icons.add_circle_outline), onPressed: () {
+                if(item.quantity < item.product.stock) {
+                   ref.read(cartProvider.notifier).updateItem(item.product.id, item.quantity + 1);
+                }
+              }),
+            ],
+          )
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSummary(BuildContext context, model.Cart cart, NumberFormat formatCurrency) {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+        boxShadow: [BoxShadow(color: Colors.grey.withAlpha(25), spreadRadius: 0, blurRadius: 10)],
+      ),
+      child: Column(
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text('Tạm tính (${cart.totalItems})', style: Theme.of(context).textTheme.titleMedium),
+              Text(formatCurrency.format(cart.subtotal), style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
+            ],
+          ),
+          const SizedBox(height: 20),
+          ElevatedButton(
+            onPressed: () => context.push('/checkout'),
+            style: ElevatedButton.styleFrom(minimumSize: const Size(double.infinity, 50)),
+            child: const Text('Tiến hành thanh toán'),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+================================================================================
+END OF FILE: lib/features/cart/presentation/screens/cart_screen.dart
+================================================================================
+
+================================================================================
+FILE: lib/features/cart/presentation/screens/checkout_screen.dart
+================================================================================
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
+import 'package:smartshop_mobile/features/cart/application/cart_provider.dart';
+import 'package:smartshop_mobile/features/profile/data/order_repository.dart';
+
+class CheckoutScreen extends ConsumerStatefulWidget {
+  const CheckoutScreen({super.key});
+
+  @override
+  ConsumerState<CheckoutScreen> createState() => _CheckoutScreenState();
+}
+
+class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
+  final _formKey = GlobalKey<FormState>();
+  final _nameController = TextEditingController();
+  final _phoneController = TextEditingController();
+  final _addressController = TextEditingController();
+  String _paymentMethod = 'cod';
+  bool _isLoading = false;
+
+  Future<void> _handlePlaceOrder() async {
+    if (_formKey.currentState!.validate()) {
+      setState(() => _isLoading = true);
+
+      try {
+        final customerInfo = {
+          'fullName': _nameController.text,
+          'phone': _phoneController.text,
+          'address': _addressController.text,
+          'city': 'Hồ Chí Minh', // Tạm thời hard-code
+        };
+
+        final response = await ref.read(orderRepositoryProvider).createOrder(customerInfo, _paymentMethod);
+        final String newOrderNumber = response['orderNumber'];
+        // Làm mới giỏ hàng (sẽ rỗng sau khi đặt hàng)
+        ref.read(cartProvider.notifier).loadCart();
+
+        context.pushReplacement('/order-success/$newOrderNumber');
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Đặt hàng thành công!'), backgroundColor: Colors.green),
+        );
+
+      } catch (e) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Lỗi: ${e.toString()}'), backgroundColor: Colors.red),
+        );
+      } finally {
+        setState(() => _isLoading = false);
+      }
+    }
+  }
+
+  @override
+  void dispose() {
+    _nameController.dispose();
+    _phoneController.dispose();
+    _addressController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: const Text('Thanh toán')),
+      body: Form(
+        key: _formKey,
+        child: ListView(
+          padding: const EdgeInsets.all(16.0),
+          children: [
+            Text('Thông tin giao hàng', style: Theme.of(context).textTheme.headlineSmall),
+            const SizedBox(height: 16),
+            Card(
+              child: Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: Column(
+                  children: [
+                    TextFormField(
+                      controller: _nameController,
+                      decoration: const InputDecoration(labelText: 'Họ và tên'),
+                      validator: (value) => value!.isEmpty ? 'Vui lòng nhập họ tên' : null,
+                    ),
+                    const SizedBox(height: 12),
+                    TextFormField(
+                      controller: _phoneController,
+                      decoration: const InputDecoration(labelText: 'Số điện thoại'),
+                      keyboardType: TextInputType.phone,
+                      validator: (value) => value!.isEmpty ? 'Vui lòng nhập số điện thoại' : null,
+                    ),
+                    const SizedBox(height: 12),
+                    TextFormField(
+                      controller: _addressController,
+                      decoration: const InputDecoration(labelText: 'Địa chỉ'),
+                       validator: (value) => value!.isEmpty ? 'Vui lòng nhập địa chỉ' : null,
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 24),
+            Text('Phương thức thanh toán', style: Theme.of(context).textTheme.headlineSmall),
+            const SizedBox(height: 16),
+            Card(
+              child: Padding(
+                padding: const EdgeInsets.all(8.0),
+                child: Column(
+                  children: [
+                    RadioListTile<String>(
+                      title: const Text('Thanh toán khi nhận hàng (COD)'),
+                      value: 'cod',
+                      groupValue: _paymentMethod,
+                      onChanged: (value) => setState(() => _paymentMethod = value!),
+                    ),
+                    RadioListTile<String>(
+                      title: const Text('Chuyển khoản ngân hàng'),
+                      value: 'bank_transfer',
+                      groupValue: _paymentMethod,
+                      onChanged: (value) => setState(() => _paymentMethod = value!),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+      bottomNavigationBar: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: ElevatedButton(
+          onPressed: _isLoading ? null : _handlePlaceOrder,
+          child: _isLoading 
+              ? const SizedBox(width: 24, height: 24, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+              : const Text('Xác nhận đặt hàng'),
+        ),
+      ),
+    );
+  }
+}
+
+================================================================================
+END OF FILE: lib/features/cart/presentation/screens/checkout_screen.dart
+================================================================================
+
+================================================================================
+FILE: lib/features/cart/presentation/screens/order_success_screen.dart
+================================================================================
+import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
+
+class OrderSuccessScreen extends StatelessWidget {
+  final String orderNumber;
+  const OrderSuccessScreen({super.key, required this.orderNumber});
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24.0),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(Icons.check_circle_outline, color: Colors.green, size: 100),
+              const SizedBox(height: 24),
+              Text(
+                'Đặt hàng thành công!',
+                style: Theme.of(context).textTheme.headlineMedium?.copyWith(fontWeight: FontWeight.bold),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 12),
+              Text(
+                'Cảm ơn bạn đã mua sắm. Đơn hàng #${orderNumber} đang được xử lý.',
+                style: Theme.of(context).textTheme.titleMedium?.copyWith(color: Colors.grey[700]),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 40),
+              ElevatedButton(
+                onPressed: () => context.go('/orders'),
+                style: ElevatedButton.styleFrom(minimumSize: const Size(double.infinity, 50)),
+                child: const Text('Xem đơn hàng của tôi'),
+              ),
+              const SizedBox(height: 12),
+              OutlinedButton(
+                onPressed: () => context.go('/'),
+                style: OutlinedButton.styleFrom(minimumSize: const Size(double.infinity, 50)),
+                child: const Text('Tiếp tục mua sắm'),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+================================================================================
+END OF FILE: lib/features/cart/presentation/screens/order_success_screen.dart
+================================================================================
+
+================================================================================
+FILE: lib/features/cart/presentation/widgets/cart_icon_widget.dart
+================================================================================
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
+import 'package:smartshop_mobile/features/cart/application/cart_provider.dart';
+
+class CartIconWidget extends ConsumerWidget {
+  const CartIconWidget({super.key});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final cartState = ref.watch(cartProvider);
+    final itemCount = cartState.valueOrNull?.totalItems ?? 0;
+
+    return Stack(
+      alignment: Alignment.center,
+      children: [
+        IconButton(
+          onPressed: () => context.push('/cart'),
+          icon: const Icon(Icons.shopping_cart_outlined),
+        ),
+        if (itemCount > 0)
+          Positioned(
+            right: 8,
+            top: 8,
+            child: Container(
+              padding: const EdgeInsets.all(1),
+              decoration: BoxDecoration(
+                color: Colors.red,
+                borderRadius: BorderRadius.circular(10),
+              ),
+              constraints: const BoxConstraints(minWidth: 16, minHeight: 16),
+              child: Text(
+                '$itemCount',
+                style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
+                textAlign: TextAlign.center,
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+}
+
+================================================================================
+END OF FILE: lib/features/cart/presentation/widgets/cart_icon_widget.dart
+================================================================================
+
+================================================================================
+FILE: lib/features/products/application/product_providers.dart
+================================================================================
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:smartshop_mobile/core/mock_data/models.dart';
+import 'package:smartshop_mobile/features/products/data/product_repository.dart';
+
+// Provider để lấy danh sách sản phẩm nổi bật
+final featuredProductsProvider = FutureProvider.autoDispose<List<Product>>((ref) {
+  // Theo dõi repository và gọi hàm để lấy dữ liệu
+  return ref.watch(productRepositoryProvider).getFeaturedProducts();
+});
+
+
+// Dùng `.family` để có thể truyền tham số (productId) vào provider
+final productDetailProvider = FutureProvider.autoDispose.family<Product, String>((ref, productId) {
+  // Gọi hàm trong repository với productId nhận được
+  return ref.watch(productRepositoryProvider).getProductById(productId);
+});
+
+
+final categoriesProvider = FutureProvider.autoDispose<List<Category>>((ref) {
+  return ref.watch(productRepositoryProvider).getAllCategories();
+});
+
+
+final brandsProvider = FutureProvider.autoDispose<List<Brand>>((ref) {
+  return ref.watch(productRepositoryProvider).getAllBrands();
+});
+
+
+================================================================================
+END OF FILE: lib/features/products/application/product_providers.dart
+================================================================================
+
+================================================================================
+FILE: lib/features/products/data/product_graphql.dart
+================================================================================
+class ProductGraphQL {
+  static const String productFragment = r'''
+    fragment ProductData on Product {
+      _id
+      name
+      description
+      price
+      originalPrice
+      images
+      stock
+      isFeatured
+      isActive
+      category { _id name }
+      brand { _id name }
+    }
+  ''';
+
+  static const String getProducts = '''
+    query GetProducts(\$first: Int, \$offset: Int) {
+      products(first: \$first, offset: \$offset) {
+        nodes { ...ProductData }
+        totalCount
+        hasNextPage
+      }
+    }
+    $productFragment
+  ''';
+
+  static const String getFeaturedProducts = '''
+    query GetFeaturedProducts {
+      featuredProducts { ...ProductData }
+    }
+    $productFragment
+  ''';
+
+  // --- QUERY MỚI ---
+  static const String getProductById = '''
+    query GetProduct(\$id: ID!) {
+      product(id: \$id) {
+        ...ProductData
+      }
+    }
+    $productFragment
+  ''';
+
+  static const String getAllCategories = r'''
+    query GetAllCategories {
+      allCategories {
+        _id
+        name
+        image
+      }
+    }
+  ''';
+
+  static const String getAllBrands = r'''
+    query GetAllBrands {
+      allBrands {
+        _id
+        name
+        logo
+      }
+    }
+  ''';
+}
+
+================================================================================
+END OF FILE: lib/features/products/data/product_graphql.dart
+================================================================================
+
+================================================================================
+FILE: lib/features/products/data/product_repository.dart
+================================================================================
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:graphql_flutter/graphql_flutter.dart';
+import 'package:smartshop_mobile/core/api/graphql_client.dart';
+import 'package:smartshop_mobile/core/mock_data/models.dart';
+import 'package:smartshop_mobile/features/products/data/product_graphql.dart';
+
+final productRepositoryProvider = Provider<ProductRepository>((ref) {
+  return ProductRepository(client: ref.watch(graphqlClientProvider));
+});
+
+class ProductRepository {
+  final GraphQLClient client;
+  ProductRepository({required this.client});
+
+  // --- HÀM ĐƯỢC CẬP NHẬT LOGIC ---
+  Future<List<Product>> getFeaturedProducts() async {
+    // 1. Thử lấy sản phẩm nổi bật trước
+    final featuredOptions = QueryOptions(
+      document: gql(ProductGraphQL.getFeaturedProducts),
+      fetchPolicy: FetchPolicy.networkOnly,
+    );
+    final featuredResult = await client.query(featuredOptions);
+    if (featuredResult.hasException) {
+      // Nếu có lỗi, vẫn thử bước tiếp theo thay vì báo lỗi ngay
+      print("Lỗi khi lấy featuredProducts: ${featuredResult.exception.toString()}");
+    }
+
+    final List<dynamic> featuredList = featuredResult.data?['featuredProducts'] ?? [];
+
+    // 2. Nếu có sản phẩm nổi bật, trả về ngay
+    if (featuredList.isNotEmpty) {
+      print("✅ Đã tìm thấy ${featuredList.length} sản phẩm nổi bật.");
+      return featuredList.map((json) => Product.fromJson(json)).toList();
+    }
+    
+    // 3. Nếu không có sản phẩm nổi bật, lấy 8 sản phẩm mới nhất để thay thế
+    print("ℹ️ Không có sản phẩm nổi bật, đang lấy sản phẩm mới nhất...");
+    final latestOptions = QueryOptions(
+      document: gql(ProductGraphQL.getProducts),
+      variables: {'first': 8, 'offset': 0}, // Lấy 8 sản phẩm đầu
+      fetchPolicy: FetchPolicy.networkOnly,
+    );
+
+    final latestResult = await client.query(latestOptions);
+    if (latestResult.hasException) {
+      throw Exception(latestResult.exception.toString());
+    }
+    
+    final List<dynamic> latestList = latestResult.data?['products']?['nodes'] ?? [];
+    print("✅ Đã lấy được ${latestList.length} sản phẩm mới nhất để thay thế.");
+    return latestList.map((json) => Product.fromJson(json)).toList();
+  }
+
+  Future<Product> getProductById(String id) async {
+    final options = QueryOptions(
+      document: gql(ProductGraphQL.getProductById),
+      variables: {'id': id},
+      fetchPolicy: FetchPolicy.cacheAndNetwork,
+    );
+    final result = await client.query(options);
+    if (result.hasException) throw Exception(result.exception.toString());
+    final Map<String, dynamic>? productJson = result.data?['product'];
+    if (productJson == null) throw Exception('Không tìm thấy sản phẩm');
+    return Product.fromJson(productJson);
+  }
+  // --- HÀM MỚI 1 ---
+  Future<List<Category>> getAllCategories() async {
+    final options = QueryOptions(
+      document: gql(ProductGraphQL.getAllCategories),
+      fetchPolicy: FetchPolicy.cacheFirst, // Ưu tiên cache vì danh mục ít thay đổi
+    );
+    final result = await client.query(options);
+    if (result.hasException) throw Exception(result.exception.toString());
+
+    final List<dynamic> list = result.data?['allCategories'] ?? [];
+    return list.map((json) => Category.fromJson(json)).toList();
+  }
+
+  // --- HÀM MỚI 2 ---
+  Future<List<Brand>> getAllBrands() async {
+    final options = QueryOptions(
+      document: gql(ProductGraphQL.getAllBrands),
+      fetchPolicy: FetchPolicy.cacheFirst,
+    );
+    final result = await client.query(options);
+    if (result.hasException) throw Exception(result.exception.toString());
+
+    final List<dynamic> list = result.data?['allBrands'] ?? [];
+    return list.map((json) => Brand.fromJson(json)).toList();
+  }
+
+}
+
+================================================================================
+END OF FILE: lib/features/products/data/product_repository.dart
+================================================================================
+
+================================================================================
+FILE: lib/features/products/presentation/screens/brands_screen.dart
+================================================================================
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:smartshop_mobile/features/products/application/product_providers.dart';
+import 'package:cached_network_image/cached_network_image.dart';
+
+class BrandsScreen extends ConsumerWidget {
+  const BrandsScreen({super.key});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final brandsAsync = ref.watch(brandsProvider);
+
+    return Scaffold(
+      // AppBar đã được cung cấp bởi MainScreen
+      body: brandsAsync.when(
+        data: (brands) => GridView.builder(
+          padding: const EdgeInsets.all(16),
+          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: 3,
+            crossAxisSpacing: 16,
+            mainAxisSpacing: 16,
+          ),
+          itemCount: brands.length,
+          itemBuilder: (context, index) {
+            final brand = brands[index];
+            return Card(
+              child: InkWell(
+                onTap: () { /* TODO: Navigate to products by brand */ },
+                child: Padding(
+                  padding: const EdgeInsets.all(8.0),
+                  child: CachedNetworkImage(
+                    imageUrl: brand.logoUrl ?? '',
+                    errorWidget: (context, url, error) => Center(child: Text(brand.name, textAlign: TextAlign.center)),
+                  ),
+                ),
+              ),
+            );
+          },
+        ),
+        loading: () => const Center(child: CircularProgressIndicator()),
+        error: (err, stack) => Center(child: Text('Lỗi: ${err.toString()}')),
+      ),
+    );
+  }
+}
+
+================================================================================
+END OF FILE: lib/features/products/presentation/screens/brands_screen.dart
+================================================================================
+
+================================================================================
+FILE: lib/features/products/presentation/screens/categories_screen.dart
+================================================================================
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:smartshop_mobile/features/products/application/product_providers.dart';
+import 'package:cached_network_image/cached_network_image.dart';
+
+class CategoriesScreen extends ConsumerWidget {
+  const CategoriesScreen({super.key});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final categoriesAsync = ref.watch(categoriesProvider);
+
+    return Scaffold(
+      // AppBar đã được cung cấp bởi MainScreen
+      body: categoriesAsync.when(
+        data: (categories) => GridView.builder(
+          padding: const EdgeInsets.all(16),
+          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: 3,
+            crossAxisSpacing: 16,
+            mainAxisSpacing: 16,
+            childAspectRatio: 0.9,
+          ),
+          itemCount: categories.length,
+          itemBuilder: (context, index) {
+            final category = categories[index];
+            return Card(
+              child: InkWell(
+                onTap: () { /* TODO: Navigate to products by category */ },
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Expanded(
+                      child: Padding(
+                        padding: const EdgeInsets.all(12.0),
+                        child: CachedNetworkImage(
+                          imageUrl: category.imageUrl ?? '',
+                          errorWidget: (context, url, error) => const Icon(Icons.category, size: 40, color: Colors.grey),
+                        ),
+                      ),
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(8, 0, 8, 12),
+                      child: Text(
+                        category.name,
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(fontWeight: FontWeight.w500),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        ),
+        loading: () => const Center(child: CircularProgressIndicator()),
+        error: (err, stack) => Center(child: Text('Lỗi: ${err.toString()}')),
+      ),
+    );
+  }
+}
+
+================================================================================
+END OF FILE: lib/features/products/presentation/screens/categories_screen.dart
+================================================================================
+
+================================================================================
+FILE: lib/features/products/presentation/screens/home_screen.dart
+================================================================================
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:cached_network_image/cached_network_image.dart';
+import 'package:smartshop_mobile/core/mock_data/mock_data.dart';
+import 'package:smartshop_mobile/core/mock_data/models.dart';
+import 'package:smartshop_mobile/features/products/application/product_providers.dart';
+import 'package:smartshop_mobile/features/products/presentation/widgets/product_card.dart';
+
+class HomeScreen extends ConsumerWidget {
+  const HomeScreen({super.key});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final featuredProductsAsync = ref.watch(featuredProductsProvider);
+    final forYouProducts = mockProducts;
+
+    return Scaffold(
+      body: SingleChildScrollView(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _buildBanner(context),
+            const SizedBox(height: 16),
+            _buildSectionHeader(context, 'Danh mục', () {}),
+            const SizedBox(height: 8),
+            _buildCategories(),
+            const SizedBox(height: 24),
+            _buildSectionHeader(context, 'Sản phẩm nổi bật', () {}),
+            const SizedBox(height: 8),
+            featuredProductsAsync.when(
+              data: (products) => _buildFeaturedProducts(products),
+              loading: () => _buildLoadingIndicator(),
+              error: (err, stack) => _buildErrorWidget(err.toString()),
+            ),
+            const SizedBox(height: 24),
+            _buildSectionHeader(context, 'Dành cho bạn', () {}),
+            const SizedBox(height: 8),
+            _buildForYouProducts(context, forYouProducts),
+            const SizedBox(height: 24),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildBanner(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 16.0),
+      padding: const EdgeInsets.all(24.0),
+      height: 180,
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(20),
+        gradient: LinearGradient(
+          colors: [Colors.blue.shade700, Colors.purple.shade500],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.blue.withAlpha(77), // Sửa: withOpacity(0.3) -> withAlpha(77)
+            blurRadius: 15,
+            offset: const Offset(0, 5),
+          )
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Text(
+            'Siêu Sale Tháng 7',
+            style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                  color: Colors.white,
+                  fontWeight: FontWeight.bold,
+                ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Giảm giá đến 50% cho tất cả sản phẩm',
+            style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                  color: Colors.white.withAlpha(230), // Sửa: withOpacity(0.9) -> withAlpha(230)
+                ),
+          ),
+          const SizedBox(height: 16),
+          ElevatedButton(
+            onPressed: () {},
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.white,
+              foregroundColor: Colors.blue.shade700,
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+            ),
+            child: const Text('Mua ngay'),
+          )
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSectionHeader(BuildContext context, String title, VoidCallback onViewAll) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16.0),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          Text(title, style: Theme.of(context).textTheme.headlineSmall),
+          TextButton(
+            onPressed: onViewAll,
+            child: Row(
+              children: [
+                Text('Xem tất cả', style: TextStyle(color: Theme.of(context).primaryColor)),
+                Icon(Icons.arrow_forward_ios, size: 16, color: Theme.of(context).primaryColor),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCategories() {
+    return SizedBox(
+      height: 110,
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        itemCount: mockCategories.length,
+        padding: const EdgeInsets.symmetric(horizontal: 16.0),
+        separatorBuilder: (context, index) => const SizedBox(width: 16),
+        itemBuilder: (context, index) {
+          final category = mockCategories[index];
+          return SizedBox(
+            width: 80,
+            child: Column(
+              children: [
+                Container(
+                  width: 70,
+                  height: 70,
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: Colors.blue.withAlpha(25), // Sửa: withOpacity(0.1) -> withAlpha(25)
+                    borderRadius: BorderRadius.circular(15),
+                  ),
+                  child: CachedNetworkImage(
+                    imageUrl: category.imageUrl ?? '',
+                    color: Colors.blue.shade700,
+                    errorWidget: (context, url, error) => const Icon(Icons.image_not_supported, color: Colors.grey),
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  category.name,
+                  textAlign: TextAlign.center,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
+                ),
+              ],
+            ),
+          );
+        },
+      ),
+    );
+  }
+  
+  Widget _buildFeaturedProducts(List<Product> products) {
+    if (products.isEmpty) {
+      return const Center(child: Padding(
+        padding: EdgeInsets.all(20.0),
+        child: Text('Không có sản phẩm nổi bật nào.'),
+      ));
+    }
+    return SizedBox(
+      height: 290,
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        itemCount: products.length,
+        padding: const EdgeInsets.symmetric(horizontal: 16.0),
+        separatorBuilder: (context, index) => const SizedBox(width: 16),
+        itemBuilder: (context, index) {
+          return SizedBox(
+            width: 180,
+            child: ProductCard(product: products[index]),
+          );
+        },
+      ),
+    );
+  }
+  
+  Widget _buildLoadingIndicator() {
+    return const SizedBox(
+      height: 290,
+      child: Center(child: CircularProgressIndicator()),
+    );
+  }
+
+  Widget _buildErrorWidget(String error) {
+    return SizedBox(
+      height: 290,
+      child: Center(
+        child: Padding(
+          padding: const EdgeInsets.all(16.0),
+          child: Text(
+            "Lỗi tải sản phẩm: $error",
+            style: const TextStyle(color: Colors.red),
+            textAlign: TextAlign.center,
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildForYouProducts(BuildContext context, List<Product> products) {
+    return GridView.builder(
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      padding: const EdgeInsets.symmetric(horizontal: 16.0),
+      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: 2,
+        childAspectRatio: 0.65,
+        crossAxisSpacing: 16,
+        mainAxisSpacing: 16,
+      ),
+      itemCount: products.length,
+      itemBuilder: (context, index) {
+        return ProductCard(product: products[index]);
+      },
+    );
+  }
+}
+
+================================================================================
+END OF FILE: lib/features/products/presentation/screens/home_screen.dart
+================================================================================
+
+================================================================================
+FILE: lib/features/products/presentation/screens/main_screen.dart
+================================================================================
+import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
+import 'package:smartshop_mobile/features/cart/presentation/widgets/cart_icon_widget.dart';
+
+class MainScreen extends StatefulWidget {
+  // THÊM: MainScreen giờ sẽ nhận một widget con để hiển thị
+  final Widget child;
+  const MainScreen({super.key, required this.child});
+
+  @override
+  State<MainScreen> createState() => _MainScreenState();
+}
+
+class _MainScreenState extends State<MainScreen> {
+  // Hàm để tính toán index của BottomNavBar dựa trên đường dẫn URL
+  int _calculateSelectedIndex(BuildContext context) {
+    final String location = GoRouterState.of(context).matchedLocation;
+    if (location.startsWith('/categories')) {
+      return 1;
+    }
+    if (location.startsWith('/brands')) {
+      return 2;
+    }
+    if (location.startsWith('/profile')) {
+      return 3;
+    }
+    return 0; // Mặc định là trang chủ
+  }
+
+  // Hàm để điều hướng khi bấm vào một item trên BottomNavBar
+  void _onItemTapped(int index, BuildContext context) {
+    switch (index) {
+      case 0:
+        context.go('/');
+        break;
+      case 1:
+        context.go('/categories');
+        break;
+      case 2:
+        context.go('/brands');
+        break;
+      case 3:
+        context.go('/profile');
+        break;
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      // AppBar này sẽ được chia sẻ cho các màn hình con
+      appBar: AppBar(
+        title: const Text('SmartShop'),
+        centerTitle: true,
+        actions: [
+          IconButton(onPressed: () {}, icon: const Icon(Icons.search)),
+          const CartIconWidget(),
+        ],
+      ),
+      // Hiển thị widget con được truyền vào từ ShellRoute
+      body: widget.child,
+      bottomNavigationBar: BottomNavigationBar(
+        items: const <BottomNavigationBarItem>[
+          BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Trang chủ'),
+          BottomNavigationBarItem(icon: Icon(Icons.category), label: 'Danh mục'),
+          BottomNavigationBarItem(icon: Icon(Icons.store), label: 'Thương hiệu'),
+          BottomNavigationBarItem(icon: Icon(Icons.person), label: 'Tài khoản'),
+        ],
+        currentIndex: _calculateSelectedIndex(context),
+        onTap: (index) => _onItemTapped(index, context),
+        type: BottomNavigationBarType.fixed, // Để label luôn hiển thị
+        selectedItemColor: Theme.of(context).primaryColor,
+        unselectedItemColor: Colors.grey,
+      ),
+    );
+  }
+}
+
+================================================================================
+END OF FILE: lib/features/products/presentation/screens/main_screen.dart
+================================================================================
+
+================================================================================
+FILE: lib/features/products/presentation/screens/product_detail_screen.dart
+================================================================================
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:cached_network_image/cached_network_image.dart';
+import 'package:intl/intl.dart';
+import 'package:go_router/go_router.dart';
+import 'package:smartshop_mobile/core/mock_data/models.dart';
+import 'package:smartshop_mobile/features/products/application/product_providers.dart';
+import 'package:collection/collection.dart';
+import 'package:smartshop_mobile/features/cart/application/cart_provider.dart';
+
+
+// Đổi thành ConsumerStatefulWidget để quản lý state cục bộ (số lượng, index ảnh)
+class ProductDetailScreen extends ConsumerStatefulWidget {
+  final String productId;
+  const ProductDetailScreen({super.key, required this.productId});
+
+  @override
+  ConsumerState<ProductDetailScreen> createState() => _ProductDetailScreenState();
+}
+
+class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
+  int _quantity = 1;
+  int _currentImageIndex = 0;
+  final PageController _pageController = PageController();
+
+  @override
+  Widget build(BuildContext context) {
+    // Lắng nghe provider chi tiết sản phẩm với ID được truyền vào
+    final productAsyncValue = ref.watch(productDetailProvider(widget.productId));
+
+    return Scaffold(
+      // Dùng `when` để xử lý 3 trạng thái: loading, error, data
+      body: productAsyncValue.when(
+        data: (product) => _buildProductUI(context, product),
+        loading: () => _buildLoadingUI(),
+        error: (err, stack) => _buildErrorUI(err.toString()),
+      ),
+    );
+  }
+
+  // UI khi đang tải
+  Widget _buildLoadingUI() {
+    return const Center(child: CircularProgressIndicator());
+  }
+  
+  // UI khi có lỗi
+  Widget _buildErrorUI(String error) {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(Icons.error_outline, color: Colors.red, size: 60),
+          const SizedBox(height: 16),
+          Text('Lỗi tải sản phẩm', style: Theme.of(context).textTheme.headlineSmall),
+          Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: Text(error, textAlign: TextAlign.center, style: TextStyle(color: Colors.grey[700])),
+          ),
+          ElevatedButton(
+            onPressed: () => ref.refresh(productDetailProvider(widget.productId)),
+            child: const Text('Thử lại'),
+          )
+        ],
+      ),
+    );
+  }
+  
+  // UI chính khi có dữ liệu sản phẩm
+  Widget _buildProductUI(BuildContext context, Product product) {
+    final formatCurrency = NumberFormat.currency(locale: 'vi_VN', symbol: '₫');
+
+    return Scaffold(
+      body: CustomScrollView(
+        slivers: [
+          SliverAppBar(
+            expandedHeight: 400.0,
+            pinned: true,
+            backgroundColor: Colors.white,
+            elevation: 1,
+            leading: IconButton(
+              icon: const Icon(Icons.arrow_back_ios_new),
+              onPressed: () => context.pop(),
+            ),
+            actions: [
+              IconButton(onPressed: () {}, icon: const Icon(Icons.favorite_border)),
+              IconButton(onPressed: () {}, icon: const Icon(Icons.share_outlined)),
+            ],
+            flexibleSpace: FlexibleSpaceBar(
+              background: Stack(
+                fit: StackFit.expand,
+                children: [
+                  PageView.builder(
+                    controller: _pageController,
+                    itemCount: product.images.length,
+                    onPageChanged: (index) {
+                      setState(() {
+                        _currentImageIndex = index;
+                      });
+                    },
+                    itemBuilder: (context, index) {
+                      return CachedNetworkImage(
+                        imageUrl: product.images[index],
+                        fit: BoxFit.cover,
+                        placeholder: (context, url) =>
+                            const Center(child: CircularProgressIndicator()),
+                        errorWidget: (context, url, error) =>
+                            const Icon(Icons.error),
+                      );
+                    },
+                  ),
+                  Positioned(
+                    bottom: 20,
+                    left: 0,
+                    right: 0,
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: product.images.map((url) {
+                        int index = product.images.indexOf(url);
+                        return AnimatedContainer(
+                          duration: const Duration(milliseconds: 300),
+                          width: _currentImageIndex == index ? 24.0 : 8.0,
+                          height: 8.0,
+                          margin: const EdgeInsets.symmetric(horizontal: 4.0),
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(4),
+                            color: _currentImageIndex == index
+                                ? Theme.of(context).primaryColor
+                                : Colors.white.withAlpha(178),
+                          ),
+                        );
+                      }).toList(),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: const EdgeInsets.all(20.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    product.name,
+                    style: Theme.of(context)
+                        .textTheme
+                        .headlineMedium
+                        ?.copyWith(fontWeight: FontWeight.bold),
+                  ),
+                  const SizedBox(height: 16),
+                  Row(
+                    children: [
+                      Text(
+                        formatCurrency.format(product.price),
+                        style: Theme.of(context)
+                            .textTheme
+                            .headlineSmall
+                            ?.copyWith(
+                                color: Theme.of(context).primaryColor,
+                                fontWeight: FontWeight.bold),
+                      ),
+                      const SizedBox(width: 12),
+                      if (product.originalPrice != null &&
+                          product.originalPrice! > product.price)
+                        Text(
+                          formatCurrency.format(product.originalPrice),
+                          style: const TextStyle(
+                              fontSize: 18,
+                              decoration: TextDecoration.lineThrough,
+                              color: Colors.grey),
+                        ),
+                    ],
+                  ),
+                  const SizedBox(height: 24),
+                  Text(
+                    'Mô tả sản phẩm',
+                    style: Theme.of(context).textTheme.titleLarge,
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    product.description,
+                    style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                          color: Colors.black54,
+                          height: 1.5,
+                        ),
+                  ),
+                  const SizedBox(height: 24),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text('Số lượng',
+                          style: Theme.of(context).textTheme.titleLarge),
+                      Container(
+                        decoration: BoxDecoration(
+                          border: Border.all(color: Colors.grey.shade300),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Row(
+                          children: [
+                            IconButton(
+                              icon: const Icon(Icons.remove),
+                              onPressed: () {
+                                if (_quantity > 1) {
+                                  setState(() => _quantity--);
+                                }
+                              },
+                            ),
+                            Text('$_quantity',
+                                style: const TextStyle(
+                                    fontSize: 18, fontWeight: FontWeight.bold)),
+                            IconButton(
+                              icon: const Icon(Icons.add),
+                              onPressed: () {
+                                if (_quantity < product.stock) {
+                                  setState(() => _quantity++);
+                                }
+                              },
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          )
+        ],
+      ),
+      bottomNavigationBar: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.all(16.0),
+          child: ElevatedButton.icon(
+            icon: const Icon(Icons.add_shopping_cart, color: Colors.white),
+            label: product.stock > 0
+                ? const Text('Thêm vào giỏ hàng')
+                : const Text('Hết hàng'),
+            onPressed: product.stock > 0
+                ? () {
+                    ref.read(cartProvider.notifier).addToCart(product.id, _quantity);
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text('Đã thêm $_quantity ${product.name} vào giỏ hàng!'),
+                        backgroundColor: Colors.green,
+                      ),
+                    );
+                  }
+                : null,
+            style: product.stock > 0
+                ? null
+                : ElevatedButton.styleFrom(backgroundColor: Colors.grey),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+================================================================================
+END OF FILE: lib/features/products/presentation/screens/product_detail_screen.dart
+================================================================================
+
+================================================================================
+FILE: lib/features/products/presentation/widgets/product_card.dart
+================================================================================
+import 'package:flutter/material.dart';
+import 'package:cached_network_image/cached_network_image.dart';
+import 'package:intl/intl.dart';
+import 'package:smartshop_mobile/core/mock_data/models.dart';
+import 'package:go_router/go_router.dart';
+
+class ProductCard extends StatelessWidget {
+  final Product product;
+  const ProductCard({super.key, required this.product});
+
+  @override
+  Widget build(BuildContext context) {
+    final formatCurrency = NumberFormat.currency(locale: 'vi_VN', symbol: '₫');
+
+    return Card(
+      child: InkWell(
+        borderRadius: BorderRadius.circular(15),
+        onTap: () {
+          context.push('/product/${product.id}');
+        },
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Expanded(
+              flex: 5,
+              child: Stack(
+                fit: StackFit.expand,
+                children: [
+                  ClipRRect(
+                    borderRadius: const BorderRadius.vertical(top: Radius.circular(15)),
+                    child: CachedNetworkImage(
+                      imageUrl: product.images.isNotEmpty ? product.images[0] : '',
+                      fit: BoxFit.cover,
+                      placeholder: (context, url) => Center(
+                          child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                      )),
+                      errorWidget: (context, url, error) =>
+                          const Icon(Icons.error, color: Colors.red),
+                    ),
+                  ),
+                  if (product.originalPrice != null &&
+                      product.originalPrice! > product.price)
+                    Positioned(
+                      top: 8,
+                      right: 8,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 6, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: Colors.red[600],
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: Text(
+                          '-${((product.originalPrice! - product.price) / product.originalPrice! * 100).toStringAsFixed(0)}%',
+                          style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 10,
+                              fontWeight: FontWeight.bold),
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+            Expanded(
+              flex: 4,
+              child: Padding(
+                padding: const EdgeInsets.all(12.0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      product.name,
+                      style: Theme.of(context)
+                          .textTheme
+                          .bodyMedium
+                          ?.copyWith(fontWeight: FontWeight.bold, height: 1.2),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        if (product.originalPrice != null &&
+                            product.originalPrice! > product.price)
+                          Text(
+                            formatCurrency.format(product.originalPrice),
+                            style: const TextStyle(
+                              decoration: TextDecoration.lineThrough,
+                              color: Colors.grey,
+                              fontSize: 12,
+                            ),
+                          ),
+                        Text(
+                          formatCurrency.format(product.price),
+                          style: TextStyle(
+                            color: Theme.of(context).primaryColor,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 16,
+                          ),
+                        ),
+                      ],
+                    ),
+                    Row(
+                      children: [
+                        const Icon(Icons.star,
+                            color: Colors.amber, size: 14),
+                        const SizedBox(width: 4),
+                        Text(
+                          '${product.averageRating} (${product.totalReviews})',
+                          style: Theme.of(context).textTheme.bodySmall,
+                        ),
+                      ],
+                    )
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+================================================================================
+END OF FILE: lib/features/products/presentation/widgets/product_card.dart
+================================================================================
+
+================================================================================
+FILE: lib/features/profile/application/order_providers.dart
+================================================================================
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:smartshop_mobile/core/mock_data/models.dart';
+import 'package:smartshop_mobile/features/profile/data/order_repository.dart';
+
+// Provider để lấy danh sách tất cả đơn hàng
+final myOrdersProvider = FutureProvider.autoDispose<List<Order>>((ref) {
+  return ref.watch(orderRepositoryProvider).getMyOrders();
+});
+
+// Provider để lấy chi tiết một đơn hàng
+final orderDetailProvider = FutureProvider.autoDispose.family<Order, String>((ref, orderNumber) {
+  return ref.watch(orderRepositoryProvider).getOrderDetails(orderNumber);
+});
+
+================================================================================
+END OF FILE: lib/features/profile/application/order_providers.dart
+================================================================================
+
+================================================================================
+FILE: lib/features/profile/data/order_graphql.dart
+================================================================================
+class OrderGraphQL {
+  // Fragment cho thông tin cơ bản của một đơn hàng
+  static const String orderFragment = r'''
+    fragment OrderDetails on Order {
+      _id
+      orderNumber
+      status
+      paymentMethod
+      paymentStatus
+      totalAmount
+      orderDate
+      customerInfo {
+        fullName
+        phone
+        address
+        city
+      }
+      items {
+        _id
+        productName
+        productSku
+        quantity
+        unitPrice
+        totalPrice
+        product {
+          _id
+          images
+        }
+        productSnapshot {
+          images
+        }
+      }
+    }
+  ''';
+
+  // Mutation để tạo đơn hàng từ giỏ hàng
+  static const String createOrderFromCart = '''
+    mutation CreateOrderFromCart(\$input: CreateOrderInput!) {
+      createOrderFromCart(input: \$input) {
+        orderNumber
+        _id
+      }
+    }
+  ''';
+
+  // Query để lấy tất cả đơn hàng của người dùng hiện tại
+  static const String getMyOrders = '''
+    query GetMyOrders(\$first: Int, \$offset: Int) {
+      getMyOrders(first: \$first, offset: \$offset) {
+        nodes {
+          ...OrderDetails
+        }
+        totalCount
+      }
+    }
+    $orderFragment
+  ''';
+
+  // Query để lấy chi tiết một đơn hàng
+  static const String getMyOrder = '''
+    query GetMyOrder(\$orderNumber: String!) {
+      getMyOrder(orderNumber: \$orderNumber) {
+        ...OrderDetails
+      }
+    }
+    $orderFragment
+  ''';
+}
+
+================================================================================
+END OF FILE: lib/features/profile/data/order_graphql.dart
+================================================================================
+
+================================================================================
+FILE: lib/features/profile/data/order_repository.dart
+================================================================================
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:graphql_flutter/graphql_flutter.dart';
+import 'package:smartshop_mobile/core/api/graphql_client.dart';
+import 'package:smartshop_mobile/core/mock_data/models.dart';
+import 'package:smartshop_mobile/features/profile/data/order_graphql.dart';
+
+final orderRepositoryProvider = Provider((ref) => OrderRepository(client: ref.watch(graphqlClientProvider)));
+
+class OrderRepository {
+  final GraphQLClient client;
+  OrderRepository({required this.client});
+
+  Future<Map<String, dynamic>> createOrder(Map<String, dynamic> customerInfo, String paymentMethod) async {
+    final options = MutationOptions(
+      document: gql(OrderGraphQL.createOrderFromCart),
+      variables: {
+        'input': {
+          'customerInfo': customerInfo,
+          'paymentMethod': paymentMethod,
+        }
+      },
+    );
+
+    final result = await client.mutate(options);
+    if (result.hasException) {
+      throw Exception(result.exception.toString());
+    }
+
+    final response = result.data?['createOrderFromCart'];
+    if (response == null) {
+      throw Exception('Tạo đơn hàng thất bại');
+    }
+    return response;
+  }
+  Future<List<Order>> getMyOrders() async {
+    final options = QueryOptions(
+      document: gql(OrderGraphQL.getMyOrders),
+      fetchPolicy: FetchPolicy.networkOnly,
+    );
+    final result = await client.query(options);
+
+    if (result.hasException) {
+      throw Exception(result.exception.toString());
+    }
+
+    final List<dynamic> orderList = result.data?['getMyOrders']?['nodes'] ?? [];
+    return orderList.map((json) => Order.fromJson(json)).toList();
+  }
+
+  Future<Order> getOrderDetails(String orderNumber) async {
+    final options = QueryOptions(
+      document: gql(OrderGraphQL.getMyOrder),
+      variables: {'orderNumber': orderNumber},
+      fetchPolicy: FetchPolicy.networkOnly,
+    );
+    final result = await client.query(options);
+
+    if (result.hasException) {
+      throw Exception(result.exception.toString());
+    }
+    
+    final orderJson = result.data?['getMyOrder'];
+    if (orderJson == null) {
+      throw Exception('Không tìm thấy đơn hàng');
+    }
+
+    return Order.fromJson(orderJson);
+  }
+}
+
+================================================================================
+END OF FILE: lib/features/profile/data/order_repository.dart
+================================================================================
+
+================================================================================
+FILE: lib/features/profile/presentation/screens/order_detail_screen.dart
+================================================================================
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:intl/intl.dart';
+import 'package:smartshop_mobile/features/profile/application/order_providers.dart';
+import 'package:cached_network_image/cached_network_image.dart';
+
+class OrderDetailScreen extends ConsumerWidget {
+  final String orderNumber; // Giữ lại id để tương thích với router hiện tại
+  const OrderDetailScreen({super.key, required this.orderNumber});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    // Giả sử orderNumber và orderId giống nhau trong mock, cần sửa lại khi có API
+    final orderAsyncValue = ref.watch(orderDetailProvider(orderNumber));
+
+    return Scaffold(
+      appBar: AppBar(title: Text('Chi tiết đơn #$orderNumber')),
+      body: orderAsyncValue.when(
+        data: (order) {
+          final formatCurrency = NumberFormat.currency(locale: 'vi_VN', symbol: '₫');
+          return ListView(
+             padding: const EdgeInsets.all(16),
+             children: [
+               Text('Danh sách sản phẩm', style: Theme.of(context).textTheme.titleLarge),
+               const SizedBox(height: 12),
+               for(var item in order.items)
+                 Card(
+                   margin: const EdgeInsets.only(bottom: 12),
+                   child: ListTile(
+                     leading: item.product?.images.isNotEmpty ?? false
+                        ? CachedNetworkImage(imageUrl: item.product!.images[0], width: 50)
+                        : const Icon(Icons.image_not_supported),
+                     title: Text(item.productName),
+                     subtitle: Text('Số lượng: ${item.quantity}'),
+                     trailing: Text(formatCurrency.format(item.priceAtOrder * item.quantity)),
+                   ),
+                 ),
+                const Divider(height: 32),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    const Text('Tổng cộng:', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                    Text(formatCurrency.format(order.totalAmount), style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                  ],
+                ),
+             ],
+           );
+        },
+        loading: () => const Center(child: CircularProgressIndicator()),
+        error: (err, stack) => Center(child: Text('Lỗi: ${err.toString()}')),
+      ),
+    );
+  }
+}
+
+================================================================================
+END OF FILE: lib/features/profile/presentation/screens/order_detail_screen.dart
+================================================================================
+
+================================================================================
+FILE: lib/features/profile/presentation/screens/orders_screen.dart
+================================================================================
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
+import 'package:intl/intl.dart';
+import 'package:smartshop_mobile/core/mock_data/models.dart';
+import 'package:smartshop_mobile/features/profile/application/order_providers.dart';
+import 'package:smartshop_mobile/core/utils/formatter.dart';
+import 'package:smartshop_mobile/core/utils/formatter.dart';
+
+class OrdersScreen extends ConsumerWidget {
+  const OrdersScreen({super.key});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final ordersAsyncValue = ref.watch(myOrdersProvider);
+
+    return Scaffold(
+      appBar: AppBar(title: const Text('Đơn hàng của tôi')),
+      body: ordersAsyncValue.when(
+        data: (orders) {
+          if (orders.isEmpty) {
+            return Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Icon(Icons.receipt_long_outlined, size: 80, color: Colors.grey),
+                  const SizedBox(height: 16),
+                  const Text('Bạn chưa có đơn hàng nào', style: TextStyle(fontSize: 18)),
+                  const SizedBox(height: 16),
+                  ElevatedButton(
+                    onPressed: () => context.go('/'),
+                    child: const Text('Bắt đầu mua sắm'),
+                  )
+                ],
+              ),
+            );
+          }
+          return RefreshIndicator(
+            onRefresh: () => ref.refresh(myOrdersProvider.future),
+            child: ListView.separated(
+              padding: const EdgeInsets.all(16),
+              itemCount: orders.length,
+              separatorBuilder: (context, index) => const SizedBox(height: 16),
+              itemBuilder: (context, index) {
+                return _buildOrderCard(context, orders[index]);
+              },
+            ),
+          );
+        },
+        loading: () => const Center(child: CircularProgressIndicator()),
+        error: (err, stack) => Center(child: Text('Lỗi: ${err.toString()}')),
+      ),
+    );
+  }
+
+  }
+  Widget _buildOrderCard(BuildContext context, Order order) {
+
+    Color statusColor;
+    String statusText;
+    switch(order.status) {
+      case 'delivered':
+        statusColor = Colors.green;
+        statusText = 'Đã giao hàng';
+        break;
+      case 'shipping':
+        statusColor = Colors.orange;
+        statusText = 'Đang vận chuyển';
+        break;
+      case 'cancelled':
+        statusColor = Colors.red;
+        statusText = 'Đã hủy';
+        break;
+      default:
+        statusColor = Colors.blue;
+        statusText = 'Đang xử lý';
+    }
+
+    return Card(
+      child: InkWell(
+        onTap: () => context.push('/orders/${order.orderNumber}'),
+        child: Padding(
+          padding: const EdgeInsets.all(16.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text('Đơn hàng #${order.orderNumber}', style: const TextStyle(fontWeight: FontWeight.bold)),
+                  Text(AppFormatters.formatDate(order.orderDate), style: const TextStyle(color: Colors.grey, fontSize: 12)),
+                ],
+              ),
+              const Divider(height: 24),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text('Số lượng: ${order.items.length} sản phẩm'),
+                  Text('Tổng tiền: ${AppFormatters.currency.format(order.totalAmount)}', style: const TextStyle(fontWeight: FontWeight.bold)),
+                ],
+              ),
+              const SizedBox(height: 16),
+              Row(
+                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                   OutlinedButton(
+                     onPressed: () => context.push('/orders/${order.orderNumber}'),
+                     child: const Text('Xem chi tiết'),
+                   ),
+                  Text(statusText, style: TextStyle(color: statusColor, fontWeight: FontWeight.bold)),
+                ],
+              )
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+
+================================================================================
+END OF FILE: lib/features/profile/presentation/screens/orders_screen.dart
+================================================================================
+
+================================================================================
+FILE: lib/features/profile/presentation/screens/profile_screen.dart
+================================================================================
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
+import 'package:smartshop_mobile/core/mock_data/mock_data.dart';
+import 'package:smartshop_mobile/features/auth/application/auth_provider.dart';
+
+class ProfileScreen extends ConsumerWidget {
+  const ProfileScreen({super.key});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final authState = ref.watch(authProvider);
+
+    if (authState is! Authenticated) {
+      // Nếu user chưa đăng nhập, hiển thị nút để đi tới trang login
+      return Scaffold(
+        body: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Text('Vui lòng đăng nhập để xem thông tin.'),
+              const SizedBox(height: 20),
+              ElevatedButton(
+                onPressed: () => context.go('/login'),
+                child: const Text('Đăng nhập / Đăng ký'),
+              )
+            ],
+          ),
+        )
+      );
+    }
+    
+    // Nếu đã đăng nhập, hiển thị thông tin
+    final user = authState.user;
+
+    return Scaffold(
+      body: ListView(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(24),
+            color: Theme.of(context).primaryColor,
+            child: Row(
+              children: [
+                CircleAvatar(
+                  radius: 40,
+                  backgroundImage: NetworkImage(user.avatarUrl),
+                ),
+                const SizedBox(width: 20),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      '${user.firstName} ${user.lastName}',
+                      style: Theme.of(context).textTheme.headlineSmall?.copyWith(color: Colors.white),
+                    ),
+                    Text(
+                      user.email,
+                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: Colors.white70),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+          
+          _buildMenuItem(context, icon: Icons.shopping_bag_outlined, title: 'Đơn hàng của tôi', onTap: () => context.push('/orders')),
+          _buildMenuItem(context, icon: Icons.location_on_outlined, title: 'Địa chỉ nhận hàng', onTap: () {}),
+          const Divider(),
+          _buildMenuItem(
+            context, 
+            icon: Icons.logout, 
+            title: 'Đăng xuất', 
+            color: Colors.red, 
+            onTap: () {
+              ref.read(authProvider.notifier).logout();
+              // Router sẽ tự động điều hướng về trang login nhờ redirect
+            }
+          ),
+        ],
+      ),
+    );
+  }
+
+   Widget _buildMenuItem(BuildContext context, {required IconData icon, required String title, Color? color, required VoidCallback onTap}) {
+    return ListTile(
+      leading: Icon(icon, color: color ?? Theme.of(context).primaryColor),
+      title: Text(title, style: TextStyle(color: color)),
+      trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+      onTap: onTap,
+    );
+  }
+}
+
+================================================================================
+END OF FILE: lib/features/profile/presentation/screens/profile_screen.dart
+================================================================================
+
+================================================================================
+KẾT THÚC TÓM TẮT DỰ ÁN
+================================================================================

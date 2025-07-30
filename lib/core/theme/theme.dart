@@ -23,6 +23,7 @@ class AppTheme {
       centerTitle: true,
     ),
 
+    
     // Chủ đề cho các nút
     elevatedButtonTheme: ElevatedButtonThemeData(
       style: ElevatedButton.styleFrom(
@@ -82,4 +83,22 @@ class AppTheme {
       labelSmall: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.bold),
     ),
   );
+
+  static final ThemeData darkTheme = ThemeData(
+    brightness: Brightness.dark,
+    primarySwatch: Colors.blue,
+    scaffoldBackgroundColor: const Color(0xFF121212),
+    fontFamily: GoogleFonts.inter().fontFamily,
+    
+    appBarTheme: AppBarTheme(
+      backgroundColor: const Color(0xFF1F1F1F),
+      elevation: 0.5,
+      titleTextStyle: GoogleFonts.poppins(
+        color: Colors.white,
+        fontSize: 20,
+        fontWeight: FontWeight.w600,
+      ),
+    ),
+  );  
+
 }

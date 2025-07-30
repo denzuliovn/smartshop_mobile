@@ -3,13 +3,13 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:intl/intl.dart';
 import 'package:go_router/go_router.dart';
+import 'package:smartshop_mobile/core/constants/api_constants.dart';
 import 'package:smartshop_mobile/core/mock_data/models.dart';
 import 'package:smartshop_mobile/features/products/application/product_providers.dart';
-import 'package:collection/collection.dart';
 import 'package:smartshop_mobile/features/cart/application/cart_provider.dart';
+import 'package:smartshop_mobile/features/products/presentation/widgets/review_list.dart'; // Vẫn import file này
+import 'package:collection/collection.dart';
 
-
-// Đổi thành ConsumerStatefulWidget để quản lý state cục bộ (số lượng, index ảnh)
 class ProductDetailScreen extends ConsumerStatefulWidget {
   final String productId;
   const ProductDetailScreen({super.key, required this.productId});
@@ -18,18 +18,42 @@ class ProductDetailScreen extends ConsumerStatefulWidget {
   ConsumerState<ProductDetailScreen> createState() => _ProductDetailScreenState();
 }
 
-class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
+class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> with SingleTickerProviderStateMixin {
   int _quantity = 1;
   int _currentImageIndex = 0;
   final PageController _pageController = PageController();
+  late TabController _tabController;
+  
+  @override
+  void initState() {
+    super.initState();
+    _tabController = TabController(length: 2, vsync: this);
+  }
+
+  @override
+  void dispose() {
+    _pageController.dispose();
+    _tabController.dispose();
+    super.dispose();
+  }
+  
+  // HÀM HELPER ĐỂ TẠO URL HÌNH ẢNH AN TOÀN
+  String _getImageUrl(String? imagePath) {
+    const String baseUrl = ApiConstants.baseUrl; // Thay bằng IP LAN nếu dùng máy thật
+    if (imagePath == null || imagePath.isEmpty) {
+      return 'https://via.placeholder.com/400'; // Một URL ảnh mặc định
+    }
+    if (imagePath.startsWith('http')) {
+      return imagePath;
+    }
+    return "$baseUrl$imagePath";
+  }
 
   @override
   Widget build(BuildContext context) {
-    // Lắng nghe provider chi tiết sản phẩm với ID được truyền vào
     final productAsyncValue = ref.watch(productDetailProvider(widget.productId));
 
     return Scaffold(
-      // Dùng `when` để xử lý 3 trạng thái: loading, error, data
       body: productAsyncValue.when(
         data: (product) => _buildProductUI(context, product),
         loading: () => _buildLoadingUI(),
@@ -38,12 +62,10 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
     );
   }
 
-  // UI khi đang tải
   Widget _buildLoadingUI() {
     return const Center(child: CircularProgressIndicator());
   }
   
-  // UI khi có lỗi
   Widget _buildErrorUI(String error) {
     return Center(
       child: Column(
@@ -65,168 +87,179 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
     );
   }
   
-  // UI chính khi có dữ liệu sản phẩm
   Widget _buildProductUI(BuildContext context, Product product) {
     final formatCurrency = NumberFormat.currency(locale: 'vi_VN', symbol: '₫');
 
     return Scaffold(
-      body: CustomScrollView(
-        slivers: [
-          SliverAppBar(
-            expandedHeight: 400.0,
-            pinned: true,
-            backgroundColor: Colors.white,
-            elevation: 1,
-            leading: IconButton(
-              icon: const Icon(Icons.arrow_back_ios_new),
-              onPressed: () => context.pop(),
-            ),
-            actions: [
-              IconButton(onPressed: () {}, icon: const Icon(Icons.favorite_border)),
-              IconButton(onPressed: () {}, icon: const Icon(Icons.share_outlined)),
-            ],
-            flexibleSpace: FlexibleSpaceBar(
-              background: Stack(
-                fit: StackFit.expand,
-                children: [
-                  PageView.builder(
-                    controller: _pageController,
-                    itemCount: product.images.length,
-                    onPageChanged: (index) {
-                      setState(() {
-                        _currentImageIndex = index;
-                      });
-                    },
-                    itemBuilder: (context, index) {
-                      return CachedNetworkImage(
-                        imageUrl: product.images[index],
-                        fit: BoxFit.cover,
-                        placeholder: (context, url) =>
-                            const Center(child: CircularProgressIndicator()),
-                        errorWidget: (context, url, error) =>
-                            const Icon(Icons.error),
-                      );
-                    },
-                  ),
-                  Positioned(
-                    bottom: 20,
-                    left: 0,
-                    right: 0,
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: product.images.map((url) {
-                        int index = product.images.indexOf(url);
-                        return AnimatedContainer(
-                          duration: const Duration(milliseconds: 300),
-                          width: _currentImageIndex == index ? 24.0 : 8.0,
-                          height: 8.0,
-                          margin: const EdgeInsets.symmetric(horizontal: 4.0),
-                          decoration: BoxDecoration(
-                            borderRadius: BorderRadius.circular(4),
-                            color: _currentImageIndex == index
-                                ? Theme.of(context).primaryColor
-                                : Colors.white.withAlpha(178),
-                          ),
+      body: NestedScrollView(
+        headerSliverBuilder: (BuildContext context, bool innerBoxIsScrolled) {
+          return <Widget>[
+            SliverAppBar(
+              expandedHeight: 400.0,
+              pinned: true,
+              backgroundColor: Colors.white,
+              elevation: 1,
+              leading: IconButton(
+                icon: const Icon(Icons.arrow_back_ios_new),
+                onPressed: () => context.pop(),
+              ),
+              actions: [
+                IconButton(onPressed: () {}, icon: const Icon(Icons.favorite_border)),
+                IconButton(onPressed: () {}, icon: const Icon(Icons.share_outlined)),
+              ],
+              flexibleSpace: FlexibleSpaceBar(
+                background: Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    PageView.builder(
+                      controller: _pageController,
+                      itemCount: product.images.length,
+                      onPageChanged: (index) {
+                        setState(() {
+                          _currentImageIndex = index;
+                        });
+                      },
+                      itemBuilder: (context, index) {
+                        final imageUrl = _getImageUrl(product.images[index]);
+                        return CachedNetworkImage(
+                          imageUrl: imageUrl,
+                          fit: BoxFit.cover,
+                          placeholder: (context, url) =>
+                              const Center(child: CircularProgressIndicator()),
+                          errorWidget: (context, url, error) =>
+                              const Center(child: Icon(Icons.broken_image, size: 50, color: Colors.grey)),
                         );
-                      }).toList(),
+                      },
                     ),
-                  ),
-                ],
+                    Positioned(
+                      bottom: 20,
+                      left: 0,
+                      right: 0,
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: product.images.map((url) {
+                          int index = product.images.indexOf(url);
+                          return AnimatedContainer(
+                            duration: const Duration(milliseconds: 300),
+                            width: _currentImageIndex == index ? 24.0 : 8.0,
+                            height: 8.0,
+                            margin: const EdgeInsets.symmetric(horizontal: 4.0),
+                            decoration: BoxDecoration(
+                              borderRadius: BorderRadius.circular(4),
+                              color: _currentImageIndex == index
+                                  ? Theme.of(context).primaryColor
+                                  : Colors.white.withAlpha(178),
+                            ),
+                          );
+                        }).toList(),
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
-          ),
-          SliverToBoxAdapter(
-            child: Padding(
-              padding: const EdgeInsets.all(20.0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    product.name,
-                    style: Theme.of(context)
-                        .textTheme
-                        .headlineMedium
-                        ?.copyWith(fontWeight: FontWeight.bold),
-                  ),
-                  const SizedBox(height: 16),
-                  Row(
-                    children: [
-                      Text(
-                        formatCurrency.format(product.price),
-                        style: Theme.of(context)
-                            .textTheme
-                            .headlineSmall
-                            ?.copyWith(
-                                color: Theme.of(context).primaryColor,
-                                fontWeight: FontWeight.bold),
-                      ),
-                      const SizedBox(width: 12),
-                      if (product.originalPrice != null &&
-                          product.originalPrice! > product.price)
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(20.0, 20.0, 20.0, 0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      product.name,
+                      style: Theme.of(context)
+                          .textTheme
+                          .headlineMedium
+                          ?.copyWith(fontWeight: FontWeight.bold),
+                    ),
+                    const SizedBox(height: 16),
+                    Row(
+                      children: [
                         Text(
-                          formatCurrency.format(product.originalPrice),
-                          style: const TextStyle(
-                              fontSize: 18,
-                              decoration: TextDecoration.lineThrough,
-                              color: Colors.grey),
+                          formatCurrency.format(product.price),
+                          style: Theme.of(context)
+                              .textTheme
+                              .headlineSmall
+                              ?.copyWith(
+                                  color: Theme.of(context).primaryColor,
+                                  fontWeight: FontWeight.bold),
                         ),
-                    ],
-                  ),
-                  const SizedBox(height: 24),
-                  Text(
-                    'Mô tả sản phẩm',
-                    style: Theme.of(context).textTheme.titleLarge,
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    product.description,
-                    style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                          color: Colors.black54,
-                          height: 1.5,
+                        const SizedBox(width: 12),
+                        if (product.originalPrice != null &&
+                            product.originalPrice! > product.price)
+                          Text(
+                            formatCurrency.format(product.originalPrice),
+                            style: const TextStyle(
+                                fontSize: 18,
+                                decoration: TextDecoration.lineThrough,
+                                color: Colors.grey),
+                          ),
+                      ],
+                    ),
+                    const SizedBox(height: 24),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text('Số lượng',
+                            style: Theme.of(context).textTheme.titleLarge),
+                        Container(
+                          decoration: BoxDecoration(
+                            border: Border.all(color: Colors.grey.shade300),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Row(
+                            children: [
+                              IconButton(
+                                icon: const Icon(Icons.remove),
+                                onPressed: () {
+                                  if (_quantity > 1) {
+                                    setState(() => _quantity--);
+                                  }
+                                },
+                              ),
+                              Text('$_quantity',
+                                  style: const TextStyle(
+                                      fontSize: 18, fontWeight: FontWeight.bold)),
+                              IconButton(
+                                icon: const Icon(Icons.add),
+                                onPressed: () {
+                                  if (_quantity < product.stock) {
+                                    setState(() => _quantity++);
+                                  }
+                                },
+                              ),
+                            ],
+                          ),
                         ),
-                  ),
-                  const SizedBox(height: 24),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text('Số lượng',
-                          style: Theme.of(context).textTheme.titleLarge),
-                      Container(
-                        decoration: BoxDecoration(
-                          border: Border.all(color: Colors.grey.shade300),
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: Row(
-                          children: [
-                            IconButton(
-                              icon: const Icon(Icons.remove),
-                              onPressed: () {
-                                if (_quantity > 1) {
-                                  setState(() => _quantity--);
-                                }
-                              },
-                            ),
-                            Text('$_quantity',
-                                style: const TextStyle(
-                                    fontSize: 18, fontWeight: FontWeight.bold)),
-                            IconButton(
-                              icon: const Icon(Icons.add),
-                              onPressed: () {
-                                if (_quantity < product.stock) {
-                                  setState(() => _quantity++);
-                                }
-                              },
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
+                      ],
+                    ),
+                  ],
+                ),
               ),
             ),
-          )
-        ],
+            SliverPersistentHeader(
+              delegate: _SliverAppBarDelegate(
+                TabBar(
+                  controller: _tabController,
+                  tabs: const [
+                    Tab(text: 'Mô tả'),
+                    Tab(text: 'Đánh giá'),
+                  ],
+                ),
+              ),
+              pinned: true,
+            ),
+          ];
+        },
+        body: TabBarView(
+          controller: _tabController,
+          children: [
+            SingleChildScrollView(
+              padding: const EdgeInsets.all(20.0),
+              child: Text(product.description, style: Theme.of(context).textTheme.bodyLarge?.copyWith(height: 1.6)),
+            ),
+            ReviewList(productId: product.id),
+          ],
+        ),
       ),
       bottomNavigationBar: SafeArea(
         child: Padding(
@@ -254,5 +287,29 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
         ),
       ),
     );
+  }
+}
+
+class _SliverAppBarDelegate extends SliverPersistentHeaderDelegate {
+  _SliverAppBarDelegate(this._tabBar);
+  final TabBar _tabBar;
+
+  @override
+  double get minExtent => _tabBar.preferredSize.height;
+  @override
+  double get maxExtent => _tabBar.preferredSize.height;
+
+  @override
+  Widget build(
+      BuildContext context, double shrinkOffset, bool overlapsContent) {
+    return Container(
+      color: Theme.of(context).scaffoldBackgroundColor,
+      child: _tabBar,
+    );
+  }
+
+  @override
+  bool shouldRebuild(_SliverAppBarDelegate oldDelegate) {
+    return false;
   }
 }

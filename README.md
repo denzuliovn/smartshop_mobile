@@ -1,16 +1,15 @@
 # smartshop_mobile
 
-A new Flutter project.
+1. CHANGE LAN IP 
 
-## Getting Started
+If you run this flutter projet on your lap (localhost), use 10.0.2.2
+If you run this flutter project on your real phone. First, you need to open your CMD and run 'ipconfig' to get LAN IP, then take it and:    
+   - Ctrl + F to find '4000' (discover the place to change LAN IP) 
+   - change LAN IP in file lib/core/constants/api_constants.dart
+   - change LAN IP in file features/products/presentation/screens/product_detail_screen.dart
+   - change LAN IP in file lib/features/products/presentation/widgets/product_card.dart
 
-This project is a starting point for a Flutter application.
-
-A few resources to get you started if this is your first Flutter project:
-
-- [Lab: Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Cookbook: Useful Flutter samples](https://docs.flutter.dev/cookbook)
-
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+2. Best practice to run this project
+   
+- First, run command 'flutter clean' in terminal
+- Then, run command 'flutter run' in terminal

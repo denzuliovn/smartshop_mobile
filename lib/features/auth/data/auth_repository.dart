@@ -65,4 +65,33 @@ class AuthRepository {
       throw Exception(response['message'] ?? 'Đăng ký thất bại');
     }
   }
+
+  Future<void> sendOTP(String email) async {
+    final options = MutationOptions(
+      document: gql(AuthGraphQL.sendPasswordResetOTP),
+      variables: {'input': {'email': email}},
+    );
+    final result = await client.mutate(options);
+    if (result.hasException) throw Exception(result.exception.toString());
+    
+    final response = result.data?['sendPasswordResetOTP'];
+    if (response == null || !response['success']) {
+      throw Exception(response['message'] ?? 'Gửi OTP thất bại');
+    }
+  }
+
+  Future<void> resetPassword(String email, String otp, String newPassword) async {
+    final options = MutationOptions(
+      document: gql(AuthGraphQL.verifyOTPAndResetPassword),
+      variables: {'input': {'email': email, 'otp': otp, 'newPassword': newPassword}},
+    );
+    final result = await client.mutate(options);
+    if (result.hasException) throw Exception(result.exception.toString());
+
+    final response = result.data?['verifyOTPAndResetPassword'];
+    if (response == null || !response['success']) {
+      throw Exception(response['message'] ?? 'Đặt lại mật khẩu thất bại');
+    }
+  }
+
 }

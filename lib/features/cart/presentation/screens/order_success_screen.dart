@@ -29,7 +29,7 @@ class OrderSuccessScreen extends StatelessWidget {
               ),
               const SizedBox(height: 40),
               ElevatedButton(
-                onPressed: () => context.go('/orders'),
+                onPressed: () => context.push('/my-orders'),
                 style: ElevatedButton.styleFrom(minimumSize: const Size(double.infinity, 50)),
                 child: const Text('Xem đơn hàng của tôi'),
               ),

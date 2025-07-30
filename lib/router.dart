@@ -7,17 +7,27 @@ import 'package:smartshop_mobile/features/auth/presentation/screens/login_screen
 import 'package:smartshop_mobile/features/auth/presentation/screens/register_screen.dart';
 import 'package:smartshop_mobile/features/cart/presentation/screens/cart_screen.dart';
 import 'package:smartshop_mobile/features/cart/presentation/screens/checkout_screen.dart';
-import 'package:smartshop_mobile/features/products/presentation/screens/brands_screen.dart';
-import 'package:smartshop_mobile/features/products/presentation/screens/categories_screen.dart';
+import 'package:smartshop_mobile/features/cart/presentation/screens/order_success_screen.dart';
+import 'package:smartshop_mobile/features/products/application/product_providers.dart';
+import 'package:smartshop_mobile/features/products/presentation/screens/explore_screen.dart';
 import 'package:smartshop_mobile/features/products/presentation/screens/home_screen.dart';
 import 'package:smartshop_mobile/features/products/presentation/screens/main_screen.dart';
 import 'package:smartshop_mobile/features/products/presentation/screens/product_detail_screen.dart';
+import 'package:smartshop_mobile/features/products/presentation/screens/products_screen.dart';
+import 'package:smartshop_mobile/features/products/presentation/screens/search_screen.dart';
 import 'package:smartshop_mobile/features/profile/presentation/screens/order_detail_screen.dart';
 import 'package:smartshop_mobile/features/profile/presentation/screens/orders_screen.dart';
 import 'package:smartshop_mobile/features/profile/presentation/screens/profile_screen.dart';
-import 'package:smartshop_mobile/features/cart/presentation/screens/order_success_screen.dart';
+import 'package:smartshop_mobile/features/products/presentation/screens/filter_screen.dart';
+import 'package:smartshop_mobile/features/profile/presentation/screens/edit_profile_screen.dart';
+import 'package:smartshop_mobile/features/profile/presentation/screens/address_screen.dart';
+import 'package:smartshop_mobile/features/profile/presentation/screens/notifications_screen.dart';
+import 'package:smartshop_mobile/features/profile/presentation/screens/settings_screen.dart';
+import 'package:smartshop_mobile/features/admin/presentation/screens/admin_dashboard_screen.dart';
+import 'package:smartshop_mobile/features/admin/presentation/screens/admin_main_screen.dart';
+import 'package:smartshop_mobile/features/admin/presentation/screens/admin_orders_screen.dart';
+import 'package:smartshop_mobile/features/admin/presentation/screens/admin_products_screen.dart';
 import 'dart:async';
-
 
 class GoRouterRefreshStream extends ChangeNotifier {
   GoRouterRefreshStream(Stream<dynamic> stream) {
@@ -35,39 +45,36 @@ class GoRouterRefreshStream extends ChangeNotifier {
 
 final routerProvider = Provider<GoRouter>((ref) {
   final authNotifier = ref.watch(authProvider.notifier);
-  final rootNavigatorKey = GlobalKey<NavigatorState>();
 
   return GoRouter(
-    navigatorKey: rootNavigatorKey,
     initialLocation: '/login',
     refreshListenable: GoRouterRefreshStream(authNotifier.stream),
     routes: [
-      // --- SỬA LẠI SHELLROUTE Ở ĐÂY ---
+      // ShellRoute sẽ "bọc" các màn hình có BottomNavBar
       ShellRoute(
-        navigatorKey: GlobalKey<NavigatorState>(), // Key riêng cho các tab
         builder: (context, state, child) {
           return MainScreen(child: child);
         },
         routes: [
-          // Route con không bắt đầu bằng dấu '/'
-          GoRoute(
-            path: '/', 
-            builder: (context, state) => const HomeScreen()
-          ),
-          GoRoute(
-            path: '/categories', 
-            builder: (context, state) => const CategoriesScreen()
-          ),
-          GoRoute(
-            path: '/brands', 
-            builder: (context, state) => const BrandsScreen()
-          ),
-          GoRoute(
-            path: '/profile', // SỬA: Bỏ dấu '/' ở đầu, nhưng vẫn giữ để điều hướng
-            builder: (context, state) => const ProfileScreen()
-          ),
+          GoRoute(path: '/', builder: (context, state) => const HomeScreen()),
+          GoRoute(path: '/explore', builder: (context, state) => const ExploreScreen()),
+          GoRoute(path: '/my-orders', builder: (context, state) => const OrdersScreen()),
+          GoRoute(path: '/profile', builder: (context, state) => const ProfileScreen()),
         ],
       ),
+
+      ShellRoute(
+        builder: (context, state, child) {
+          // AdminMainScreen sẽ chứa sidebar/bottom bar của admin
+          return AdminMainScreen(child: child);
+        },
+        routes: [
+          GoRoute(path: '/admin', builder: (context, state) => const AdminDashboardScreen()),
+          GoRoute(path: '/admin/orders', builder: (context, state) => const AdminOrdersScreen()),
+          GoRoute(path: '/admin/products', builder: (context, state) => const AdminProductsScreen()),
+        ]
+      ),
+
       
       // Các route không có BottomNavBar sẽ nằm ngoài ShellRoute
       GoRoute(
@@ -77,12 +84,36 @@ final routerProvider = Provider<GoRouter>((ref) {
           return ProductDetailScreen(productId: productId);
         },
       ),
+      GoRoute(path: '/products',
+        builder: (context, state) {
+          final isFeatured = state.uri.queryParameters['featured'] == 'true';
+          return ProductsScreen(isFeaturedOnly: isFeatured);
+        },
+      ),
+      GoRoute(
+        path: '/filter',
+        pageBuilder: (context, state) {
+          // Lấy toàn bộ object filter được truyền qua
+          final initialFilter = state.extra as ProductListFilter? ?? const ProductListFilter();
+          return MaterialPage(
+            child: FilterScreen(initialFilter: initialFilter),
+            fullscreenDialog: true,
+          );
+        },
+      ),
+      GoRoute(path: '/search', builder: (context, state) => const SearchScreen()),
       GoRoute(path: '/login', builder: (context, state) => const LoginScreen()),
       GoRoute(path: '/register', builder: (context, state) => const RegisterScreen()),
       GoRoute(path: '/forgot-password', builder: (context, state) => const ForgotPasswordScreen()),
       GoRoute(path: '/cart', builder: (context, state) => const CartScreen()),
       GoRoute(path: '/checkout', builder: (context, state) => const CheckoutScreen()),
-      GoRoute(path: '/orders', builder: (context, state) => const OrdersScreen()),
+      GoRoute(
+        path: '/order-success/:orderNumber',
+        builder: (context, state) {
+          final orderNumber = state.pathParameters['orderNumber']!;
+          return OrderSuccessScreen(orderNumber: orderNumber);
+        },
+      ),
       GoRoute(
         path: '/orders/:orderNumber',
         builder: (context, state) {
@@ -91,25 +122,44 @@ final routerProvider = Provider<GoRouter>((ref) {
         },
       ),
       GoRoute(
-      path: '/order-success/:orderNumber',
-      builder: (context, state) {
-        final orderNumber = state.pathParameters['orderNumber']!;
-        return OrderSuccessScreen(orderNumber: orderNumber);
-      },
+        path: '/edit-profile',
+        builder: (context, state) => const EditProfileScreen(),
+      ),
+      GoRoute(
+        path: '/addresses',
+        builder: (context, state) => const AddressScreen(),
+      ),
+      GoRoute(
+        path: '/notifications',
+        builder: (context, state) => const NotificationsScreen(),
+      ),
+      GoRoute(
+        path: '/settings',
+        builder: (context, state) => const SettingsScreen(),
       ),
 
     ],
     redirect: (context, state) {
       final authState = ref.read(authProvider);
       final isLoggedIn = authState is Authenticated;
+      final userRole = isLoggedIn ? authState.user.role : null;
+      
       final loggingIn = state.matchedLocation == '/login' || 
                         state.matchedLocation == '/register' || 
                         state.matchedLocation == '/forgot-password';
+      final isAdminRoute = state.matchedLocation.startsWith('/admin');
+
+      // Nếu chưa đăng nhập và cố vào trang admin -> về login
+      if (!isLoggedIn && isAdminRoute) return '/login';
+      
+      // Nếu đã đăng nhập nhưng không phải admin/manager và cố vào trang admin
+      if (isLoggedIn && userRole == 'customer' && isAdminRoute) return '/';
 
       if (!isLoggedIn && !loggingIn) return '/login';
       if (isLoggedIn && loggingIn) return '/';
       
       return null;
+
     },
   );
 });

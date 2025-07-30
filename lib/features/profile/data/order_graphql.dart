@@ -65,4 +65,14 @@ class OrderGraphQL {
     }
     $orderFragment
   ''';
+
+  static const String cancelOrder = r'''
+    mutation CancelOrder($orderNumber: String!, $reason: String) {
+      cancelOrder(orderNumber: $orderNumber, reason: $reason) {
+        _id
+        status
+      }
+    }
+  ''';
+
 }

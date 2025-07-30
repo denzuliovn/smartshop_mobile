@@ -36,7 +36,8 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
         // Làm mới giỏ hàng (sẽ rỗng sau khi đặt hàng)
         ref.read(cartProvider.notifier).loadCart();
 
-        context.pushReplacement('/order-success/$newOrderNumber');
+        context.go('/order-success/$newOrderNumber'); 
+        // context.pushReplacement('/order-success/$newOrderNumber');
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Đặt hàng thành công!'), backgroundColor: Colors.green),
         );

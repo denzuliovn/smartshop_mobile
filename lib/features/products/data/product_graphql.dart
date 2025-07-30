@@ -16,15 +16,18 @@ class ProductGraphQL {
   ''';
 
   static const String getProducts = '''
-    query GetProducts(\$first: Int, \$offset: Int) {
-      products(first: \$first, offset: \$offset) {
-        nodes { ...ProductData }
+    query GetProducts(\$first: Int, \$offset: Int, \$orderBy: ProductsOrderBy) {
+      products(first: \$first, offset: \$offset, orderBy: \$orderBy) {
+        nodes {
+          ...ProductData
+        }
         totalCount
         hasNextPage
       }
     }
     $productFragment
   ''';
+
 
   static const String getFeaturedProducts = '''
     query GetFeaturedProducts {
@@ -62,4 +65,17 @@ class ProductGraphQL {
       }
     }
   ''';
+
+  static const String searchProducts = '''
+    query SearchProducts(\$query: String!, \$first: Int) {
+      searchProducts(query: \$query, first: \$first) {
+        nodes {
+          ...ProductData
+        }
+      }
+    }
+    $productFragment
+  ''';
+
+  
 }

@@ -20,4 +20,23 @@ class AuthGraphQL {
       }
     }
   ''';
+
+  static const String sendPasswordResetOTP = r'''
+    mutation SendPasswordResetOTP($input: SendOTPInput!) {
+      sendPasswordResetOTP(input: $input) {
+        success
+        message
+      }
+    }
+  ''';
+
+  static const String verifyOTPAndResetPassword = r'''
+    mutation VerifyOTPAndResetPassword($input: VerifyOTPAndResetPasswordInput!) {
+      verifyOTPAndResetPassword(input: $input) {
+        success
+        message
+      }
+    }
+  ''';
+
 }

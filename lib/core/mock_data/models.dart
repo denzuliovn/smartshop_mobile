@@ -1,14 +1,22 @@
 class User {
   final String id, username, email, firstName, lastName, role, avatarUrl;
   User({
-    required this.id,
-    required this.username,
-    required this.email,
-    required this.firstName,
-    required this.lastName,
-    required this.role,
+    required this.id, required this.username, required this.email,
+    required this.firstName, required this.lastName, required this.role,
     required this.avatarUrl,
   });
+
+  factory User.fromJson(Map<String, dynamic> json) {
+    return User(
+      id: json['_id'] ?? 'N/A',
+      username: json['username'] ?? 'user',
+      email: json['email'] ?? 'N/A',
+      firstName: json['firstName'] ?? 'Người dùng',
+      lastName: json['lastName'] ?? '',
+      role: json['role'] ?? 'customer',
+      avatarUrl: json['avatarUrl'] ?? 'https://i.pravatar.cc/150',
+    );
+  }
 }
 
 class Category {
@@ -19,9 +27,9 @@ class Category {
   
   factory Category.fromJson(Map<String, dynamic> json) {
     return Category(
-      id: json['_id'] ?? '',
-      name: json['name'] ?? 'No Category',
-      imageUrl: json['image'],
+      id: json['_id'] ?? 'N/A',
+      name: json['name'] ?? 'Chưa phân loại',
+      imageUrl: json['image'], 
     );
   }
 }
@@ -34,9 +42,9 @@ class Brand {
 
   factory Brand.fromJson(Map<String, dynamic> json) {
     return Brand(
-      id: json['_id'] ?? '',
-      name: json['name'] ?? 'No Brand',
-      logoUrl: json['logo'],
+      id: json['_id'] ?? 'N/A',
+      name: json['name'] ?? 'Không có thương hiệu',
+      logoUrl: json['logo'], 
     );
   }
 }
@@ -54,19 +62,10 @@ class Product {
   final int totalReviews;
 
   Product({
-    required this.id,
-    required this.name,
-    required this.description,
-    required this.price,
-    this.originalPrice,
-    required this.images,
-    required this.stock,
-    this.isFeatured = false,
-    this.isActive = true,
-    this.category,
-    this.brand,
-    this.averageRating = 4.5,
-    this.totalReviews = 99,
+    required this.id, required this.name, required this.description,
+    required this.price, this.originalPrice, required this.images,
+    required this.stock, this.isFeatured = false, this.isActive = true,
+    this.category, this.brand, this.averageRating = 4.5, this.totalReviews = 99,
   });
 
   factory Product.fromJson(Map<String, dynamic> json) {
@@ -74,8 +73,8 @@ class Product {
     final List<String> images = imageList.map((e) => e.toString()).toList();
 
     return Product(
-      id: json['_id'] ?? '',
-      name: json['name'] ?? 'No Name',
+      id: json['_id'] ?? 'N/A',
+      name: json['name'] ?? 'Sản phẩm không tên',
       description: json['description'] ?? '',
       price: (json['price'] as num? ?? 0).toDouble(),
       originalPrice: (json['originalPrice'] as num?)?.toDouble(),
@@ -90,6 +89,7 @@ class Product {
     );
   }
 }
+
 
 class CartItem {
   final String id;
@@ -154,26 +154,21 @@ class OrderItem {
   final double priceAtOrder;
 
   OrderItem({
-    required this.id,
-    required this.productName,
-    required this.productSku,
-    this.product,
-    required this.quantity,
-    required this.priceAtOrder,
+    required this.id, required this.productName, required this.productSku,
+    this.product, required this.quantity, required this.priceAtOrder,
   });
 
   factory OrderItem.fromJson(Map<String, dynamic> json) {
     return OrderItem(
-      id: json['_id'],
-      productName: json['productName'],
-      productSku: json['productSku'],
+      id: json['_id'] ?? 'N/A',
+      productName: json['productName'] ?? 'Sản phẩm không tên', // Xử lý null
+      productSku: json['productSku'] ?? 'N/A', // Xử lý null
       product: json['product'] != null ? Product.fromJson(json['product']) : null,
-      quantity: (json['quantity'] as num).toInt(),
-      priceAtOrder: (json['unitPrice'] as num).toDouble(),
+      quantity: (json['quantity'] as num? ?? 0).toInt(),
+      priceAtOrder: (json['unitPrice'] as num? ?? 0).toDouble(),
     );
   }
 }
-
 
 class Order {
   final String id;
@@ -184,53 +179,91 @@ class Order {
   final double totalAmount;
 
   Order({
-    required this.id,
-    required this.orderNumber,
-    required this.orderDate,
-    required this.status,
-    required this.items,
-    required this.totalAmount,
+    required this.id, required this.orderNumber, required this.orderDate,
+    required this.status, required this.items, required this.totalAmount,
   });
 
   factory Order.fromJson(Map<String, dynamic> json) {
     final List<dynamic> itemJsonList = json['items'] ?? [];
     
-    // --- LOGIC XỬ LÝ DATE MẠNH MẼ HƠN ---
     DateTime parsedDate;
     final dynamic dateValue = json['orderDate'];
 
     if (dateValue is num) {
-      // Trường hợp 1: Backend trả về số (timestamp)
       parsedDate = DateTime.fromMillisecondsSinceEpoch(dateValue.toInt());
     } else if (dateValue is String) {
-      // Trường hợp 2: Backend trả về chuỗi
-      // Thử parse nó như một con số trước
       final intTimestamp = int.tryParse(dateValue);
       if (intTimestamp != null) {
-        // Nếu parse thành công -> đây là chuỗi timestamp
         parsedDate = DateTime.fromMillisecondsSinceEpoch(intTimestamp);
       } else {
-        // Nếu không, thử parse như một chuỗi date ISO
         try {
           parsedDate = DateTime.parse(dateValue);
         } catch (e) {
-          // Nếu tất cả đều thất bại, dùng ngày hiện tại
           parsedDate = DateTime.now();
         }
       }
     } else {
-      // Trường hợp 3: Kiểu dữ liệu không xác định hoặc null
       parsedDate = DateTime.now();
     }
-    // --- KẾT THÚC LOGIC XỬ LÝ DATE ---
 
     return Order(
-      id: json['_id'] ?? 'N/A',
+      id: json['_id'] ?? 'unknown_id',
       orderNumber: json['orderNumber'] ?? 'N/A',
       orderDate: parsedDate,
       status: json['status'] ?? 'pending',
       items: itemJsonList.map((item) => OrderItem.fromJson(item)).toList(),
       totalAmount: (json['totalAmount'] as num? ?? 0).toDouble(),
+    );
+  }
+}
+
+
+
+class Review {
+  final String id;
+  final User user;
+  final int rating;
+  final String comment;
+  final DateTime createdAt;
+
+  Review({
+    required this.id,
+    required this.user,
+    required this.rating,
+    required this.comment,
+    required this.createdAt,
+  });
+
+  factory Review.fromJson(Map<String, dynamic> json) {
+    return Review(
+      id: json['_id'],
+      user: User.fromJson(json['user']), // Bây giờ hàm này đã tồn tại
+      rating: (json['rating'] as num).toInt(),
+      comment: json['comment'],
+      createdAt: DateTime.parse(json['createdAt']),
+    );
+  }
+}
+
+class OrderStats {
+  final int totalOrders;
+  final int pendingOrders;
+  final int deliveredOrders;
+  final double totalRevenue;
+
+  OrderStats({
+    required this.totalOrders,
+    required this.pendingOrders,
+    required this.deliveredOrders,
+    required this.totalRevenue,
+  });
+
+  factory OrderStats.fromJson(Map<String, dynamic> json) {
+    return OrderStats(
+      totalOrders: (json['totalOrders'] as num? ?? 0).toInt(),
+      pendingOrders: (json['pendingOrders'] as num? ?? 0).toInt(),
+      deliveredOrders: (json['deliveredOrders'] as num? ?? 0).toInt(),
+      totalRevenue: (json['totalRevenue'] as num? ?? 0).toDouble(),
     );
   }
 }

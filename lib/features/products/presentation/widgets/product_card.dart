@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:intl/intl.dart';
+import 'package:smartshop_mobile/core/constants/api_constants.dart';
 import 'package:smartshop_mobile/core/mock_data/models.dart';
 import 'package:go_router/go_router.dart';
 
@@ -8,9 +9,22 @@ class ProductCard extends StatelessWidget {
   final Product product;
   const ProductCard({super.key, required this.product});
 
+  // HÀM HELPER ĐỂ TẠO URL HÌNH ẢNH AN TOÀN
+  String _getImageUrl(String? imagePath) {
+    const String baseUrl = ApiConstants.baseUrl;// Thay bằng IP LAN nếu dùng máy thật
+    if (imagePath == null || imagePath.isEmpty) {
+      return 'https://via.placeholder.com/200'; // Một URL ảnh mặc định
+    }
+    if (imagePath.startsWith('http')) {
+      return imagePath;
+    }
+    return "$baseUrl$imagePath";
+  }
+
   @override
   Widget build(BuildContext context) {
     final formatCurrency = NumberFormat.currency(locale: 'vi_VN', symbol: '₫');
+    final imageUrl = _getImageUrl(product.images.isNotEmpty ? product.images[0] : null);
 
     return Card(
       child: InkWell(
@@ -29,7 +43,7 @@ class ProductCard extends StatelessWidget {
                   ClipRRect(
                     borderRadius: const BorderRadius.vertical(top: Radius.circular(15)),
                     child: CachedNetworkImage(
-                      imageUrl: product.images.isNotEmpty ? product.images[0] : '',
+                      imageUrl: imageUrl,
                       fit: BoxFit.cover,
                       placeholder: (context, url) => Center(
                           child: CircularProgressIndicator(

@@ -3,6 +3,7 @@ import 'package:graphql_flutter/graphql_flutter.dart';
 import 'package:smartshop_mobile/core/api/graphql_client.dart';
 import 'package:smartshop_mobile/core/mock_data/models.dart';
 import 'package:smartshop_mobile/features/products/data/product_graphql.dart';
+import 'review_graphql.dart';
 
 final productRepositoryProvider = Provider<ProductRepository>((ref) {
   return ProductRepository(client: ref.watch(graphqlClientProvider));
@@ -88,5 +89,81 @@ class ProductRepository {
     final List<dynamic> list = result.data?['allBrands'] ?? [];
     return list.map((json) => Brand.fromJson(json)).toList();
   }
+
+  Future<List<Product>> searchProducts(String query, {int? limit}) async {
+    final options = QueryOptions(
+      document: gql(ProductGraphQL.searchProducts),
+      variables: {
+        'query': query,
+        'first': limit,
+      },
+      fetchPolicy: FetchPolicy.networkOnly,
+    );
+
+    final result = await client.query(options);
+    if (result.hasException) {
+      throw Exception(result.exception.toString());
+    }
+
+    final List<dynamic> list = result.data?['searchProducts']?['nodes'] ?? [];
+    return list.map((json) => Product.fromJson(json)).toList();
+  }
+
+  Future<List<Product>> getProducts({
+    required int limit, 
+    required int offset,
+    String? orderBy, // Cho phép null
+    Map<String, dynamic>? condition, // Thêm condition
+  }) async {
+    final options = QueryOptions(
+      document: gql(ProductGraphQL.getProducts),
+      variables: {
+        'first': limit,
+        'offset': offset,
+        'orderBy': orderBy,
+        'condition': condition, // Truyền condition vào variables
+      },
+      fetchPolicy: FetchPolicy.networkOnly,
+    );
+
+    final result = await client.query(options);
+    if (result.hasException) {
+      throw Exception(result.exception.toString());
+    }
+    
+    final List<dynamic> productList = result.data?['products']?['nodes'] ?? [];
+    return productList.map((json) => Product.fromJson(json)).toList();
+  }
+
+
+  Future<List<Review>> getProductReviews(String productId) async {
+    final options = QueryOptions(
+      document: gql(ReviewGraphQL.getProductReviews),
+      variables: {'productId': productId},
+    );
+    final result = await client.query(options);
+    if (result.hasException) throw Exception(result.exception.toString());
+
+    final List<dynamic> list = result.data?['getProductReviews'] ?? [];
+    return list.map((json) => Review.fromJson(json)).toList();
+  }
+
+  Future<void> createReview({
+    required String productId,
+    required int rating,
+    required String comment,
+  }) async {
+    final options = MutationOptions(
+      document: gql(ReviewGraphQL.createReview),
+      variables: {'input': {
+        'productId': productId,
+        'rating': rating,
+        'comment': comment,
+      }},
+    );
+    final result = await client.mutate(options);
+    if (result.hasException) throw Exception(result.exception.toString());
+  }
+
 
 }

@@ -88,8 +88,20 @@ class AuthNotifier extends StateNotifier<AuthState> {
   Future<void> forgotPassword(String email) async {
     state = AuthLoading();
     try {
-      // Giả lập việc gửi thành công
-      await Future.delayed(const Duration(seconds: 1));
+      await _ref.read(authRepositoryProvider).sendOTP(email);
+      // Giữ trạng thái Unauthenticated để user có thể ở lại màn hình nhập OTP
+      state = Unauthenticated(); 
+    } catch (e) {
+      state = AuthError(e.toString().replaceFirst("Exception: ", ""));
+      await Future.delayed(const Duration(seconds: 2));
+      if (mounted) state = Unauthenticated();
+    }
+  }
+
+  Future<void> resetPassword(String email, String otp, String newPassword) async {
+    state = AuthLoading();
+     try {
+      await _ref.read(authRepositoryProvider).resetPassword(email, otp, newPassword);
       state = Unauthenticated();
     } catch (e) {
       state = AuthError(e.toString().replaceFirst("Exception: ", ""));
@@ -97,6 +109,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
       if (mounted) state = Unauthenticated();
     }
   }
+
   
   Future<void> logout() async {
     state = AuthLoading();

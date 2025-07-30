@@ -1,11 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:intl/intl.dart';
 import 'package:smartshop_mobile/core/mock_data/models.dart';
+import 'package:smartshop_mobile/core/utils/formatter.dart';
 import 'package:smartshop_mobile/features/profile/application/order_providers.dart';
-import 'package:smartshop_mobile/core/utils/formatter.dart';
-import 'package:smartshop_mobile/core/utils/formatter.dart';
 
 class OrdersScreen extends ConsumerWidget {
   const OrdersScreen({super.key});
@@ -15,7 +13,10 @@ class OrdersScreen extends ConsumerWidget {
     final ordersAsyncValue = ref.watch(myOrdersProvider);
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Đơn hàng của tôi')),
+      // --- XÓA BỎ AppBar Ở ĐÂY ---
+      // appBar: AppBar(title: const Text('Đơn hàng của tôi')),
+      
+      // Phần body giữ nguyên
       body: ordersAsyncValue.when(
         data: (orders) {
           if (orders.isEmpty) {
@@ -53,12 +54,10 @@ class OrdersScreen extends ConsumerWidget {
     );
   }
 
-  }
   Widget _buildOrderCard(BuildContext context, Order order) {
-
     Color statusColor;
     String statusText;
-    switch(order.status) {
+    switch (order.status) {
       case 'delivered':
         statusColor = Colors.green;
         statusText = 'Đã giao hàng';
@@ -101,12 +100,12 @@ class OrdersScreen extends ConsumerWidget {
               ),
               const SizedBox(height: 16),
               Row(
-                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                   OutlinedButton(
-                     onPressed: () => context.push('/orders/${order.orderNumber}'),
-                     child: const Text('Xem chi tiết'),
-                   ),
+                  OutlinedButton(
+                    onPressed: () => context.push('/orders/${order.orderNumber}'),
+                    child: const Text('Xem chi tiết'),
+                  ),
                   Text(statusText, style: TextStyle(color: statusColor, fontWeight: FontWeight.bold)),
                 ],
               )
@@ -116,3 +115,4 @@ class OrdersScreen extends ConsumerWidget {
       ),
     );
   }
+}
