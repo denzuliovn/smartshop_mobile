@@ -5,6 +5,7 @@ import 'package:smartshop_mobile/core/utils/formatter.dart';
 import 'package:smartshop_mobile/features/profile/application/order_providers.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:smartshop_mobile/features/profile/data/order_repository.dart';
+import 'package:smartshop_mobile/core/constants/api_constants.dart';
 
 class OrderDetailScreen extends ConsumerWidget {
   final String orderNumber;
@@ -68,7 +69,7 @@ class OrderDetailScreen extends ConsumerWidget {
                    margin: const EdgeInsets.only(bottom: 12),
                    child: ListTile(
                      leading: item.product?.images.isNotEmpty ?? false
-                        ? CachedNetworkImage(imageUrl: "http://192.168.1.3${item.product!.images[0]}", width: 50, errorWidget: (c,u,e) => const Icon(Icons.error))
+                        ? CachedNetworkImage(imageUrl: "${ApiConstants.imageUrl}${item.product!.images[0]}", width: 50, errorWidget: (c,u,e) => const Icon(Icons.error))
                         : const Icon(Icons.image_not_supported),
                      title: Text(item.productName),
                      subtitle: Text('Số lượng: ${item.quantity}'),

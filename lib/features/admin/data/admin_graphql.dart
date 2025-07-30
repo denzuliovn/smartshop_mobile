@@ -57,5 +57,22 @@ class AdminGraphQL {
     ${OrderGraphQL.orderFragment}
   ''';
 
+  static const String updateOrderStatus = r'''
+    mutation UpdateOrderStatus($orderNumber: String!, $status: OrderStatus!, $adminNotes: String) {
+      updateOrderStatus(orderNumber: $orderNumber, status: $status, adminNotes: $adminNotes) {
+        _id
+        status
+      }
+    }
+  ''';
+  
+  static const String updatePaymentStatus = r'''
+    mutation UpdatePaymentStatus($orderNumber: String!, $paymentStatus: PaymentStatus!) {
+      updatePaymentStatus(orderNumber: $orderNumber, paymentStatus: $paymentStatus) {
+        _id
+        paymentStatus
+      }
+    }
+  ''';
 
 }

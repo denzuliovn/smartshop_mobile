@@ -60,4 +60,23 @@ class AdminRepository {
     return Order.fromJson(orderJson);
   }
 
+  Future<void> updateOrderStatus({required String orderNumber, required String status}) async {
+    final options = MutationOptions(
+      document: gql(AdminGraphQL.updateOrderStatus),
+      variables: {'orderNumber': orderNumber, 'status': status},
+    );
+    final result = await client.mutate(options);
+    if (result.hasException) throw Exception(result.exception.toString());
+  }
+
+
+  Future<void> updatePaymentStatus({required String orderNumber, required String paymentStatus}) async {
+    final options = MutationOptions(
+      document: gql(AdminGraphQL.updatePaymentStatus),
+      variables: {'orderNumber': orderNumber, 'paymentStatus': paymentStatus},
+    );
+    final result = await client.mutate(options);
+    if (result.hasException) throw Exception(result.exception.toString());
+  }
+
 }

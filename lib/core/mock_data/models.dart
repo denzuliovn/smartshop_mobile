@@ -174,14 +174,26 @@ class Order {
   final String id;
   final String orderNumber;
   final DateTime orderDate;
+  final String paymentStatus;
   final String status;
   final List<OrderItem> items;
   final double totalAmount;
+  final User? user; 
+  final dynamic customerInfo; 
+
 
   Order({
-    required this.id, required this.orderNumber, required this.orderDate,
-    required this.status, required this.items, required this.totalAmount,
+    required this.id,
+    required this.orderNumber,
+    required this.orderDate,
+    required this.status,
+    required this.paymentStatus, 
+    required this.items,
+    required this.totalAmount,
+    this.user, 
+    this.customerInfo, 
   });
+
 
   factory Order.fromJson(Map<String, dynamic> json) {
     final List<dynamic> itemJsonList = json['items'] ?? [];
@@ -211,8 +223,11 @@ class Order {
       orderNumber: json['orderNumber'] ?? 'N/A',
       orderDate: parsedDate,
       status: json['status'] ?? 'pending',
+      paymentStatus: json['paymentStatus'] ?? 'pending', 
       items: itemJsonList.map((item) => OrderItem.fromJson(item)).toList(),
       totalAmount: (json['totalAmount'] as num? ?? 0).toDouble(),
+      user: json['user'] != null ? User.fromJson(json['user']) : null, 
+      customerInfo: json['customerInfo'], 
     );
   }
 }

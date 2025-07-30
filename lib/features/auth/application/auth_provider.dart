@@ -30,9 +30,30 @@ class AuthNotifier extends StateNotifier<AuthState> {
     _checkAuthStatus();
   }
   
+  // Hàm này giờ không cần thiết nữa vì GoRouter sẽ lắng nghe trực tiếp StateNotifier
+  // Stream<AuthState> get stream => state.asStream();
+
+  // --- HÀM ĐÃ ĐƯỢC CẬP NHẬT LOGIC ---
   Future<void> _checkAuthStatus() async {
-    await Future.delayed(const Duration(milliseconds: 500));
-    state = Unauthenticated();
+    // Đọc thông tin user đã lưu từ secure storage
+    final userMap = await GraphQLConfig.getStoredUser();
+
+    if (userMap != null) {
+      // Nếu có, tạo đối tượng User và chuyển sang trạng thái Authenticated
+      final user = User(
+        id: userMap['_id'] ?? 'N/A',
+        username: userMap['username'] ?? 'user',
+        email: userMap['email'] ?? 'N/A',
+        firstName: userMap['firstName'] ?? 'Người dùng',
+        lastName: userMap['lastName'] ?? '',
+        role: userMap['role'] ?? 'customer',
+        avatarUrl: 'https://i.pravatar.cc/150?u=${userMap['_id']}',
+      );
+      state = Authenticated(user);
+    } else {
+      // Nếu không, ở trạng thái Unauthenticated
+      state = Unauthenticated();
+    }
   }
 
   Future<void> login(String username, String password) async {
@@ -83,14 +104,12 @@ class AuthNotifier extends StateNotifier<AuthState> {
       if (mounted) state = Unauthenticated();
     }
   }
-
-  // --- HÀM CÒN THIẾU ĐÃ ĐƯỢC THÊM VÀO ĐÂY ---
+  
   Future<void> forgotPassword(String email) async {
     state = AuthLoading();
     try {
       await _ref.read(authRepositoryProvider).sendOTP(email);
-      // Giữ trạng thái Unauthenticated để user có thể ở lại màn hình nhập OTP
-      state = Unauthenticated(); 
+      state = Unauthenticated();
     } catch (e) {
       state = AuthError(e.toString().replaceFirst("Exception: ", ""));
       await Future.delayed(const Duration(seconds: 2));
@@ -109,7 +128,6 @@ class AuthNotifier extends StateNotifier<AuthState> {
       if (mounted) state = Unauthenticated();
     }
   }
-
   
   Future<void> logout() async {
     state = AuthLoading();
