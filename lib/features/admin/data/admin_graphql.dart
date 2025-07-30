@@ -1,4 +1,5 @@
 import 'package:smartshop_mobile/features/profile/data/order_graphql.dart'; 
+import 'package:smartshop_mobile/features/products/data/product_graphql.dart'; 
 
 class AdminGraphQL {
   // Query để lấy các số liệu thống kê đơn hàng
@@ -73,6 +74,19 @@ class AdminGraphQL {
         paymentStatus
       }
     }
+  ''';
+
+  // Sử dụng lại productFragment từ file của products
+  static const String getAdminProducts = '''
+    query GetProducts(\$first: Int, \$offset: Int, \$orderBy: ProductsOrderBy, \$condition: ProductConditionInput) {
+      products(first: \$first, offset: \$offset, orderBy: \$orderBy, condition: \$condition) {
+        nodes {
+          ...ProductData
+        }
+        totalCount
+      }
+    }
+    ${ProductGraphQL.productFragment}
   ''';
 
 }

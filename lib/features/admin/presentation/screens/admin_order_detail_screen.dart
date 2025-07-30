@@ -6,7 +6,6 @@ import 'package:smartshop_mobile/core/mock_data/models.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:smartshop_mobile/features/admin/presentation/widgets/update_status_dialog.dart';
 import 'package:smartshop_mobile/features/admin/data/admin_repository.dart';
-import 'package:smartshop_mobile/core/constants/api_constants.dart';
 
 
 class AdminOrderDetailScreen extends ConsumerWidget {
@@ -109,7 +108,7 @@ class AdminOrderDetailScreen extends ConsumerWidget {
               ListTile(
                 contentPadding: EdgeInsets.zero,
                 leading: CachedNetworkImage(
-                  imageUrl: "${ApiConstants.imageUrl}${item.product?.images.isNotEmpty ?? false ? item.product!.images[0] : ''}",
+                  imageUrl: "http://192.168.1.3:4000${item.product?.images.isNotEmpty ?? false ? item.product!.images[0] : ''}",
                   width: 50, height: 50, fit: BoxFit.cover,
                   errorWidget: (c, u, e) => const Icon(Icons.image_not_supported),
                 ),

@@ -79,4 +79,18 @@ class AdminRepository {
     if (result.hasException) throw Exception(result.exception.toString());
   }
 
+  Future<List<Product>> getProducts() async {
+    final options = QueryOptions(
+      document: gql(AdminGraphQL.getAdminProducts),
+      // Tạm thời chưa có phân trang/lọc để đơn giản hóa
+      variables: {'first': 50, 'offset': 0},
+      fetchPolicy: FetchPolicy.networkOnly,
+    );
+    final result = await client.query(options);
+    if (result.hasException) throw Exception(result.exception.toString());
+    
+    final List<dynamic> list = result.data?['products']?['nodes'] ?? [];
+    return list.map((json) => Product.fromJson(json)).toList();
+  }
+
 }

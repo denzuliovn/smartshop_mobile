@@ -7,6 +7,7 @@ import 'package:smartshop_mobile/features/products/application/product_providers
 import 'package:smartshop_mobile/features/products/presentation/widgets/product_card.dart';
 import 'package:go_router/go_router.dart';
 import 'package:smartshop_mobile/features/cart/presentation/widgets/cart_icon_widget.dart';
+import 'package:smartshop_mobile/core/constants/api_constants.dart';
 
 class HomeScreen extends ConsumerWidget {
   const HomeScreen({super.key});
@@ -150,8 +151,6 @@ class HomeScreen extends ConsumerWidget {
   }
 
   Widget _buildCategories(List<Category> categories) {
-    // URL của server, hãy đảm bảo nó đúng (10.0.2.2 cho máy ảo Android)
-    const String baseUrl = "http://10.0.2.2:4000"; 
     
     return SizedBox(
       height: 110,
@@ -164,8 +163,9 @@ class HomeScreen extends ConsumerWidget {
           final category = categories[index];
           // Kiểm tra và tạo URL đầy đủ
           final imageUrl = (category.imageUrl != null && category.imageUrl!.startsWith('/'))
-              ? "$baseUrl${category.imageUrl}"
+              ? "${ApiConstants.baseUrl}${category.imageUrl}"
               : category.imageUrl;
+
 
           return SizedBox(
             width: 80,

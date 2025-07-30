@@ -39,15 +39,16 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> with 
   
   // HÀM HELPER ĐỂ TẠO URL HÌNH ẢNH AN TOÀN
   String _getImageUrl(String? imagePath) {
-    const String baseUrl = ApiConstants.baseUrl; // Thay bằng IP LAN nếu dùng máy thật
     if (imagePath == null || imagePath.isEmpty) {
-      return 'https://via.placeholder.com/400'; // Một URL ảnh mặc định
+      return 'https://via.placeholder.com/400';
     }
     if (imagePath.startsWith('http')) {
       return imagePath;
     }
-    return "$baseUrl$imagePath";
+    // SỬA Ở ĐÂY
+    return "${ApiConstants.baseUrl}$imagePath";
   }
+
 
   @override
   Widget build(BuildContext context) {

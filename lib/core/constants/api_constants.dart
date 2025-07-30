@@ -7,7 +7,6 @@ class ApiConstants {
   // ip wifi nhà: 192.168.1.3
   static const String ipAddress = "192.168.1.3"; // <<-- THAY IP CỦA BẠN VÀO ĐÂY 
   static const String baseUrl = "http://$ipAddress:4000";
-  static const String graphqlUrl = "http://$ipAddress:4000/"; 
-  static const String imageUrl = "http://$ipAddress:4000/images/";
+  static const String graphqlUrl = "$baseUrl/"; 
 }
 

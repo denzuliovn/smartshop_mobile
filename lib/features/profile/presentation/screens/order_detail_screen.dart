@@ -69,7 +69,7 @@ class OrderDetailScreen extends ConsumerWidget {
                    margin: const EdgeInsets.only(bottom: 12),
                    child: ListTile(
                      leading: item.product?.images.isNotEmpty ?? false
-                        ? CachedNetworkImage(imageUrl: "${ApiConstants.imageUrl}${item.product!.images[0]}", width: 50, errorWidget: (c,u,e) => const Icon(Icons.error))
+                        ? CachedNetworkImage(imageUrl: "${ApiConstants.baseUrl}${item.product!.images[0]}", width: 50, errorWidget: (c,u,e) => const Icon(Icons.error))
                         : const Icon(Icons.image_not_supported),
                      title: Text(item.productName),
                      subtitle: Text('Số lượng: ${item.quantity}'),

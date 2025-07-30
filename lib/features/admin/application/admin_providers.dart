@@ -15,3 +15,7 @@ final adminOrderDetailProvider = FutureProvider.autoDispose.family<Order, String
   return ref.watch(adminRepositoryProvider).getOrder(orderNumber);
 });
 
+final adminProductsProvider = FutureProvider.autoDispose<List<Product>>((ref) {
+  return ref.watch(adminRepositoryProvider).getProducts();
+});
+
