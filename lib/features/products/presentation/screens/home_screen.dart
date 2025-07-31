@@ -8,6 +8,7 @@ import 'package:smartshop_mobile/core/mock_data/models.dart';
 import 'package:smartshop_mobile/features/cart/presentation/widgets/cart_icon_widget.dart';
 import 'package:smartshop_mobile/features/products/application/product_providers.dart';
 import 'package:smartshop_mobile/features/products/presentation/widgets/product_card.dart';
+import 'package:smartshop_mobile/core/utils/icon_mapper.dart';
 
 class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
@@ -20,24 +21,27 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   final PageController _bannerController = PageController();
   int _currentBannerPage = 0;
   Timer? _bannerTimer;
-  
+
   final List<Map<String, String>> _bannerData = [
     {
       'title': 'iPhone 15 Pro Max',
       'subtitle': 'Khung Titan. Mạnh mẽ. Đẳng cấp.',
-      'image': 'https://images.unsplash.com/photo-1695823018812-c684c980ede6?q=80&w=880&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D',
+      'image':
+          'https://images.unsplash.com/photo-1695823018812-c684c980ede6?q=80&w=880&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D',
       'cta': 'Mua ngay',
     },
     {
       'title': 'Siêu Sale Laptop',
       'subtitle': 'Giảm giá đến 30% cho dòng MacBook',
-      'image': 'https://images.unsplash.com/photo-1517336714731-489689fd1ca8?q=80&w=1200',
+      'image':
+          'https://images.unsplash.com/photo-1517336714731-489689fd1ca8?q=80&w=1200',
       'cta': 'Xem ngay',
     },
     {
       'title': 'Âm thanh Đỉnh cao',
       'subtitle': 'Tai nghe chống ồn thế hệ mới',
-      'image': 'https://images.unsplash.com/photo-1558590987-ed99c5b46f6a?q=80&w=1170&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D',
+      'image':
+          'https://images.unsplash.com/photo-1558590987-ed99c5b46f6a?q=80&w=1170&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D',
       'cta': 'Khám phá',
     },
   ];
@@ -90,26 +94,27 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             children: [
               _buildBannerSlider(context),
               const SizedBox(height: 24),
-              
-              _buildSectionHeader(context, 'Danh mục', () => context.push('/categories')),
+              _buildSectionHeader(context, 'Danh mục', () => context.push('/categories')), 
               const SizedBox(height: 8),
               categoriesAsync.when(
                 data: (categories) => _buildCategories(categories),
                 loading: () => _buildLoadingIndicator(height: 110),
-                error: (err, stack) => _buildErrorWidget(err.toString(), height: 110),
+                error: (err, stack) =>
+                    _buildErrorWidget(err.toString(), height: 110),
               ),
-
               const SizedBox(height: 24),
-              _buildSectionHeader(context, 'Sản phẩm nổi bật', () => context.push('/products?featured=true')),
+              _buildSectionHeader(context, 'Sản phẩm nổi bật',
+                  () => context.push('/products?featured=true')),
               const SizedBox(height: 8),
               featuredProductsAsync.when(
                 data: (products) => _buildHorizontalProductList(products),
                 loading: () => _buildLoadingIndicator(height: 290),
-                error: (err, stack) => _buildErrorWidget(err.toString(), height: 290),
+                error: (err, stack) =>
+                    _buildErrorWidget(err.toString(), height: 290),
               ),
-
               const SizedBox(height: 24),
-              _buildSectionHeader(context, 'Dành cho bạn', () => context.push('/products')),
+              _buildSectionHeader(
+                  context, 'Dành cho bạn', () => context.push('/products')),
               const SizedBox(height: 8),
               forYouProductsAsync.when(
                 data: (products) => _buildForYouProductsGrid(context, products),
@@ -154,7 +159,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   decoration: BoxDecoration(
                     borderRadius: BorderRadius.circular(20),
                     gradient: LinearGradient(
-                      colors: [Colors.black.withOpacity(0.6), Colors.transparent],
+                      colors: [
+                        Colors.black.withOpacity(0.6),
+                        Colors.transparent
+                      ],
                       begin: Alignment.bottomCenter,
                       end: Alignment.topCenter,
                     ),
@@ -171,7 +179,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                             fontSize: 22,
                             fontWeight: FontWeight.bold,
                             color: Colors.white,
-                            shadows: [Shadow(blurRadius: 10, color: Colors.black54)],
+                            shadows: [
+                              Shadow(blurRadius: 10, color: Colors.black54)
+                            ],
                           ),
                         ),
                         Text(
@@ -199,7 +209,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   height: 8.0,
                   width: _currentBannerPage == index ? 24.0 : 8.0,
                   decoration: BoxDecoration(
-                    color: _currentBannerPage == index ? Colors.white : Colors.white.withOpacity(0.5),
+                    color: _currentBannerPage == index
+                        ? Colors.white
+                        : Colors.white.withOpacity(0.5),
                     borderRadius: BorderRadius.circular(12),
                   ),
                 );
@@ -211,7 +223,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     );
   }
 
-  Widget _buildSectionHeader(BuildContext context, String title, VoidCallback onViewAll) {
+  Widget _buildSectionHeader(
+      BuildContext context, String title, VoidCallback onViewAll) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16.0),
       child: Row(
@@ -223,8 +236,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             onPressed: onViewAll,
             child: Row(
               children: [
-                Text('Xem tất cả', style: TextStyle(color: Theme.of(context).primaryColor)),
-                Icon(Icons.arrow_forward_ios, size: 16, color: Theme.of(context).primaryColor),
+                Text('Xem tất cả',
+                    style: TextStyle(color: Theme.of(context).primaryColor)),
+                Icon(Icons.arrow_forward_ios,
+                    size: 16, color: Theme.of(context).primaryColor),
               ],
             ),
           ),
@@ -234,58 +249,64 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   }
 
   Widget _buildCategories(List<Category> categories) {
-    const String baseUrl = ApiConstants.baseUrl; 
-    
     return SizedBox(
+      // Set chiều cao cố định cho hàng ngang
       height: 110,
       child: ListView.separated(
+        // Kích hoạt cuộn ngang
         scrollDirection: Axis.horizontal,
         itemCount: categories.length,
+        // Thêm padding ở hai đầu để không bị sát lề
         padding: const EdgeInsets.symmetric(horizontal: 16.0),
+        // Khoảng cách giữa các item
         separatorBuilder: (context, index) => const SizedBox(width: 16),
         itemBuilder: (context, index) {
           final category = categories[index];
-          final imageUrl = (category.imageUrl != null && category.imageUrl!.startsWith('/'))
-              ? "$baseUrl${category.imageUrl}"
-              : category.imageUrl;
-
           return SizedBox(
+            // Set chiều rộng cố định cho mỗi item
             width: 80,
-            child: Column(
-              children: [
-                Container(
-                  width: 70,
-                  height: 70,
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: Colors.blue.withAlpha(25),
-                    borderRadius: BorderRadius.circular(15),
+            child: InkWell(
+              borderRadius: BorderRadius.circular(15),
+              onTap: () => context.push(
+                '/products?categoryId=${category.id}&categoryName=${Uri.encodeComponent(category.name)}',
+              ),
+              child: Column(
+                children: [
+                  Container(
+                    width: 70,
+                    height: 70,
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: Colors.blue.withAlpha(25),
+                      borderRadius: BorderRadius.circular(15),
+                    ),
+                    child: Icon(
+                      IconMapper.getCategoryIcon(category.name),
+                      size: 32,
+                      color: Colors.blue.shade700,
+                    ),
                   ),
-                  child: CachedNetworkImage(
-                    imageUrl: imageUrl ?? '',
-                    color: Colors.blue.shade700,
-                    errorWidget: (context, url, error) => const Icon(Icons.image_not_supported, color: Colors.grey),
+                  const SizedBox(height: 8),
+                  Text(
+                    category.name,
+                    textAlign: TextAlign.center,
+                    maxLines: 1, // Chỉ hiển thị 1 dòng
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
                   ),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  category.name,
-                  textAlign: TextAlign.center,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
-                ),
-              ],
+                ],
+              ),
             ),
           );
         },
       ),
     );
   }
-  
+
   Widget _buildHorizontalProductList(List<Product> products) {
     if (products.isEmpty) {
-      return const SizedBox(height: 290, child: Center(child: Text('Không có sản phẩm nào.')));
+      return const SizedBox(
+          height: 290, child: Center(child: Text('Không có sản phẩm nào.')));
     }
     return SizedBox(
       height: 290,
@@ -303,7 +324,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       ),
     );
   }
-  
+
   Widget _buildLoadingIndicator({double height = 290, bool isGrid = false}) {
     if (isGrid) {
       return GridView.count(
@@ -314,7 +335,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         childAspectRatio: 0.65,
         crossAxisSpacing: 16,
         mainAxisSpacing: 16,
-        children: List.generate(4, (index) => const Card(child: Center(child: CircularProgressIndicator()))),
+        children: List.generate(
+            4,
+            (index) =>
+                const Card(child: Center(child: CircularProgressIndicator()))),
       );
     }
     return SizedBox(
@@ -339,7 +363,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     );
   }
 
-  Widget _buildForYouProductsGrid(BuildContext context, List<Product> products) {
+  Widget _buildForYouProductsGrid(
+      BuildContext context, List<Product> products) {
     return GridView.builder(
       shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
