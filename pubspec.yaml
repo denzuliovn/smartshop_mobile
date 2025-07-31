@@ -36,10 +36,6 @@ dependencies:
   http: ^1.2.1
   http_parser: ^4.0.2
 
-  image_picker: ^1.1.2
-  http: ^1.2.1 # Cần thiết để tạo multipart file
-  http_parser: ^4.0.2 # Đi kèm với http
-
 dev_dependencies:
   flutter_test:
     sdk: flutter
