@@ -1,7 +1,7 @@
 ================================================================================
 TÓM TẮT DỰ ÁN FLUTTER - SMARTSHOP MOBILE
 ================================================================================
-Tạo lúc: 2025-08-01 00:20:20
+Tạo lúc: 2025-08-01 00:56:32
 
 Dưới đây là toàn bộ code cần thiết của dự án. Hãy phân tích và chuẩn bị để tiếp tục hướng dẫn tôi.
 
@@ -25,7 +25,7 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
-  speech_to_text: ^6.6.0
+  speech_to_text: ^6.6.1
   permission_handler: ^11.0.1
 
   # shared dependencies
@@ -37,7 +37,7 @@ dependencies:
   intl: ^0.19.0
   cached_network_image: ^3.3.1
   collection: ^1.18.0 # Thêm collection để dùng firstWhereOrNull
-  
+ 
   # Quản lý trạng thái
   flutter_riverpod: ^2.5.1
 
@@ -48,7 +48,7 @@ dependencies:
 
   # Lưu trữ bảo mật
   # Dùng để lưu trữ token và thông tin người dùng
-  flutter_secure_storage: ^9.2.2 
+  flutter_secure_storage: ^9.2.2
   image_picker: ^1.1.2
   http: ^1.2.1
   http_parser: ^4.0.2
@@ -68,6 +68,11 @@ flutter:
   uses-material-design: true
   assets:
     - assets/
+
+
+dependency_overrides:
+  js: ^0.7.1
+
 
 ================================================================================
 END OF FILE: pubspec.yaml
@@ -164,6 +169,8 @@ import 'package:smartshop_mobile/features/profile/presentation/screens/wishlist_
 import 'package:smartshop_mobile/features/profile/presentation/screens/add_edit_address_screen.dart';
 import 'package:smartshop_mobile/core/mock_data/models.dart';
 import 'package:smartshop_mobile/features/admin/presentation/screens/admin_product_detail_screen.dart';
+import 'package:smartshop_mobile/features/products/presentation/screens/all_categories_screen.dart';
+import 'package:smartshop_mobile/features/products/presentation/screens/all_brands_screen.dart';
 import 'dart:async';
 
 class GoRouterRefreshStream extends ChangeNotifier {
@@ -252,13 +259,19 @@ final routerProvider = Provider<GoRouter>((ref) {
         builder: (context, state) {
           // Lấy tất cả các tham số từ URL
           final isFeatured = state.uri.queryParameters['featured'] == 'true';
+          final categoryId = state.uri.queryParameters['categoryId'];
+          final categoryName = state.uri.queryParameters['categoryName'];
+          final brandId = state.uri.queryParameters['brandId'];
+          final brandName = state.uri.queryParameters['brandName'];
           // final categoryId = state.uri.queryParameters['categoryId'];
           // final brandId = state.uri.queryParameters['brandId'];
           
           return ProductsScreen(
             isFeaturedOnly: isFeatured,
-            // categoryId: categoryId,
-            // brandId: brandId,
+            categoryId: categoryId,
+            categoryName: categoryName,
+            brandId: brandId,
+            brandName: brandName,
           );
         },
       ),
@@ -275,6 +288,14 @@ final routerProvider = Provider<GoRouter>((ref) {
         },
       ),
 
+      GoRoute(
+        path: '/brands',
+        builder: (context, state) => const AllBrandsScreen(),
+      ),
+      GoRoute(
+        path: '/categories',
+        builder: (context, state) => const AllCategoriesScreen(),
+      ),
       GoRoute(path: '/search', builder: (context, state) => const SearchScreen()),
       GoRoute(path: '/login', builder: (context, state) => const LoginScreen()),
       GoRoute(path: '/register', builder: (context, state) => const RegisterScreen()),
@@ -464,7 +485,6 @@ class ApiConstants {
   //   (Mở cmd/terminal, gõ `ipconfig` (Windows) hoặc `ifconfig` (macOS/Linux))
   // ip wifi trường UMT: 10.12.1.130
   // ip wifi nhà: 192.168.1.3
-
 
   static const String ipAddress = "192.168.1.21"; // <<-- THAY IP CỦA BẠN VÀO ĐÂY 
   static const String baseUrl = "http://$ipAddress:4000";
@@ -5229,6 +5249,168 @@ END OF FILE: lib/features/products/data/review_graphql.dart
 ================================================================================
 
 ================================================================================
+FILE: lib/features/products/presentation/screens/all_brands_screen.dart
+================================================================================
+// FILE PATH: lib/features/products/presentation/screens/all_brands_screen.dart
+
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
+import 'package:smartshop_mobile/core/utils/icon_mapper.dart';
+import 'package:smartshop_mobile/features/products/application/product_providers.dart';
+
+class AllBrandsScreen extends ConsumerWidget {
+  const AllBrandsScreen({super.key});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final brandsAsync = ref.watch(brandsProvider);
+
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Tất cả Thương hiệu'),
+      ),
+      body: brandsAsync.when(
+        data: (brands) {
+          if (brands.isEmpty) {
+            return const Center(child: Text('Không có thương hiệu nào.'));
+          }
+          return GridView.builder(
+            padding: const EdgeInsets.all(16.0),
+            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: 3,
+              crossAxisSpacing: 16,
+              mainAxisSpacing: 16,
+            ),
+            itemCount: brands.length,
+            itemBuilder: (context, index) {
+              final brand = brands[index];
+              return Card(
+                child: InkWell(
+                  borderRadius: BorderRadius.circular(16),
+                  onTap: () => context.push(
+                    '/products?brandId=${brand.id}&brandName=${Uri.encodeComponent(brand.name)}',
+                  ),
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(
+                        IconMapper.getBrandIcon(brand.name),
+                        size: 48,
+                        color: Theme.of(context).textTheme.bodyLarge?.color,
+                      ),
+                      const SizedBox(height: 12),
+                      Text(
+                        brand.name,
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(fontWeight: FontWeight.w500),
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            },
+          );
+        },
+        loading: () => const Center(child: CircularProgressIndicator()),
+        error: (err, stack) => Center(child: Text('Lỗi tải thương hiệu: $err')),
+      ),
+    );
+  }
+}
+
+================================================================================
+END OF FILE: lib/features/products/presentation/screens/all_brands_screen.dart
+================================================================================
+
+================================================================================
+FILE: lib/features/products/presentation/screens/all_categories_screen.dart
+================================================================================
+// FILE PATH: lib/features/products/presentation/screens/all_categories_screen.dart
+
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
+import 'package:smartshop_mobile/core/utils/icon_mapper.dart';
+import 'package:smartshop_mobile/features/products/application/product_providers.dart';
+
+class AllCategoriesScreen extends ConsumerWidget {
+  const AllCategoriesScreen({super.key});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    // Sử dụng lại provider đã có để lấy danh sách danh mục
+    final categoriesAsync = ref.watch(categoriesProvider);
+
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Tất cả Danh mục'),
+      ),
+      body: categoriesAsync.when(
+        data: (categories) {
+          if (categories.isEmpty) {
+            return const Center(child: Text('Không có danh mục nào.'));
+          }
+          // Sử dụng GridView để hiển thị một cách trực quan
+          return GridView.builder(
+            padding: const EdgeInsets.all(16.0),
+            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: 3, // Hiển thị 3 cột
+              crossAxisSpacing: 16,
+              mainAxisSpacing: 16,
+              childAspectRatio: 0.9, // Tỉ lệ chiều rộng/cao của mỗi item
+            ),
+            itemCount: categories.length,
+            itemBuilder: (context, index) {
+              final category = categories[index];
+              // Mỗi danh mục là một Card có thể nhấn vào
+              return Card(
+                child: InkWell(
+                  borderRadius: BorderRadius.circular(16),
+                  onTap: () => context.push(
+                    '/products?categoryId=${category.id}&categoryName=${Uri.encodeComponent(category.name)}',
+                  ),
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      // Icon lớn, dễ nhìn
+                      CircleAvatar(
+                        radius: 32,
+                        backgroundColor: Theme.of(context).primaryColor.withOpacity(0.1),
+                        child: Icon(
+                          IconMapper.getCategoryIcon(category.name),
+                          size: 32,
+                          color: Theme.of(context).primaryColor,
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      // Tên danh mục
+                      Text(
+                        category.name,
+                        textAlign: TextAlign.center,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(fontWeight: FontWeight.w500),
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            },
+          );
+        },
+        loading: () => const Center(child: CircularProgressIndicator()),
+        error: (err, stack) => Center(child: Text('Lỗi tải danh mục: $err')),
+      ),
+    );
+  }
+}
+
+================================================================================
+END OF FILE: lib/features/products/presentation/screens/all_categories_screen.dart
+================================================================================
+
+================================================================================
 FILE: lib/features/products/presentation/screens/explore_screen.dart
 ================================================================================
 import 'package:flutter/material.dart';
@@ -5337,7 +5519,7 @@ class ExploreScreen extends ConsumerWidget {
                     final brand = brands[index];
                     return Card(
                       child: InkWell(
-                        onTap: () => context.push('/products?brandId=${brand.id}'),
+                        onTap: () => context.push('/products?brandId=${brand.id}&brandName=${Uri.encodeComponent(brand.name)}'),
                         child: SizedBox(
                           width: 120,
                           child: Center(child: Icon(IconMapper.getBrandIcon(brand.name), size: 40, color: Colors.grey[800])),
@@ -5572,6 +5754,7 @@ import 'package:smartshop_mobile/core/mock_data/models.dart';
 import 'package:smartshop_mobile/features/cart/presentation/widgets/cart_icon_widget.dart';
 import 'package:smartshop_mobile/features/products/application/product_providers.dart';
 import 'package:smartshop_mobile/features/products/presentation/widgets/product_card.dart';
+import 'package:smartshop_mobile/core/utils/icon_mapper.dart';
 
 class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
@@ -5584,24 +5767,27 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   final PageController _bannerController = PageController();
   int _currentBannerPage = 0;
   Timer? _bannerTimer;
-  
+
   final List<Map<String, String>> _bannerData = [
     {
       'title': 'iPhone 15 Pro Max',
       'subtitle': 'Khung Titan. Mạnh mẽ. Đẳng cấp.',
-      'image': 'https://images.unsplash.com/photo-1695823018812-c684c980ede6?q=80&w=880&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D',
+      'image':
+          'https://images.unsplash.com/photo-1695823018812-c684c980ede6?q=80&w=880&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D',
       'cta': 'Mua ngay',
     },
     {
       'title': 'Siêu Sale Laptop',
       'subtitle': 'Giảm giá đến 30% cho dòng MacBook',
-      'image': 'https://images.unsplash.com/photo-1517336714731-489689fd1ca8?q=80&w=1200',
+      'image':
+          'https://images.unsplash.com/photo-1517336714731-489689fd1ca8?q=80&w=1200',
       'cta': 'Xem ngay',
     },
     {
       'title': 'Âm thanh Đỉnh cao',
       'subtitle': 'Tai nghe chống ồn thế hệ mới',
-      'image': 'https://images.unsplash.com/photo-1558590987-ed99c5b46f6a?q=80&w=1170&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D',
+      'image':
+          'https://images.unsplash.com/photo-1558590987-ed99c5b46f6a?q=80&w=1170&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D',
       'cta': 'Khám phá',
     },
   ];
@@ -5654,26 +5840,27 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             children: [
               _buildBannerSlider(context),
               const SizedBox(height: 24),
-              
-              _buildSectionHeader(context, 'Danh mục', () => context.push('/categories')),
+              _buildSectionHeader(context, 'Danh mục', () => context.push('/categories')), 
               const SizedBox(height: 8),
               categoriesAsync.when(
                 data: (categories) => _buildCategories(categories),
                 loading: () => _buildLoadingIndicator(height: 110),
-                error: (err, stack) => _buildErrorWidget(err.toString(), height: 110),
+                error: (err, stack) =>
+                    _buildErrorWidget(err.toString(), height: 110),
               ),
-
               const SizedBox(height: 24),
-              _buildSectionHeader(context, 'Sản phẩm nổi bật', () => context.push('/products?featured=true')),
+              _buildSectionHeader(context, 'Sản phẩm nổi bật',
+                  () => context.push('/products?featured=true')),
               const SizedBox(height: 8),
               featuredProductsAsync.when(
                 data: (products) => _buildHorizontalProductList(products),
                 loading: () => _buildLoadingIndicator(height: 290),
-                error: (err, stack) => _buildErrorWidget(err.toString(), height: 290),
+                error: (err, stack) =>
+                    _buildErrorWidget(err.toString(), height: 290),
               ),
-
               const SizedBox(height: 24),
-              _buildSectionHeader(context, 'Dành cho bạn', () => context.push('/products')),
+              _buildSectionHeader(
+                  context, 'Dành cho bạn', () => context.push('/products')),
               const SizedBox(height: 8),
               forYouProductsAsync.when(
                 data: (products) => _buildForYouProductsGrid(context, products),
@@ -5718,7 +5905,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   decoration: BoxDecoration(
                     borderRadius: BorderRadius.circular(20),
                     gradient: LinearGradient(
-                      colors: [Colors.black.withOpacity(0.6), Colors.transparent],
+                      colors: [
+                        Colors.black.withOpacity(0.6),
+                        Colors.transparent
+                      ],
                       begin: Alignment.bottomCenter,
                       end: Alignment.topCenter,
                     ),
@@ -5735,7 +5925,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                             fontSize: 22,
                             fontWeight: FontWeight.bold,
                             color: Colors.white,
-                            shadows: [Shadow(blurRadius: 10, color: Colors.black54)],
+                            shadows: [
+                              Shadow(blurRadius: 10, color: Colors.black54)
+                            ],
                           ),
                         ),
                         Text(
@@ -5763,7 +5955,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   height: 8.0,
                   width: _currentBannerPage == index ? 24.0 : 8.0,
                   decoration: BoxDecoration(
-                    color: _currentBannerPage == index ? Colors.white : Colors.white.withOpacity(0.5),
+                    color: _currentBannerPage == index
+                        ? Colors.white
+                        : Colors.white.withOpacity(0.5),
                     borderRadius: BorderRadius.circular(12),
                   ),
                 );
@@ -5775,7 +5969,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     );
   }
 
-  Widget _buildSectionHeader(BuildContext context, String title, VoidCallback onViewAll) {
+  Widget _buildSectionHeader(
+      BuildContext context, String title, VoidCallback onViewAll) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16.0),
       child: Row(
@@ -5787,8 +5982,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             onPressed: onViewAll,
             child: Row(
               children: [
-                Text('Xem tất cả', style: TextStyle(color: Theme.of(context).primaryColor)),
-                Icon(Icons.arrow_forward_ios, size: 16, color: Theme.of(context).primaryColor),
+                Text('Xem tất cả',
+                    style: TextStyle(color: Theme.of(context).primaryColor)),
+                Icon(Icons.arrow_forward_ios,
+                    size: 16, color: Theme.of(context).primaryColor),
               ],
             ),
           ),
@@ -5798,58 +5995,64 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   }
 
   Widget _buildCategories(List<Category> categories) {
-    const String baseUrl = ApiConstants.baseUrl; 
-    
     return SizedBox(
+      // Set chiều cao cố định cho hàng ngang
       height: 110,
       child: ListView.separated(
+        // Kích hoạt cuộn ngang
         scrollDirection: Axis.horizontal,
         itemCount: categories.length,
+        // Thêm padding ở hai đầu để không bị sát lề
         padding: const EdgeInsets.symmetric(horizontal: 16.0),
+        // Khoảng cách giữa các item
         separatorBuilder: (context, index) => const SizedBox(width: 16),
         itemBuilder: (context, index) {
           final category = categories[index];
-          final imageUrl = (category.imageUrl != null && category.imageUrl!.startsWith('/'))
-              ? "$baseUrl${category.imageUrl}"
-              : category.imageUrl;
-
           return SizedBox(
+            // Set chiều rộng cố định cho mỗi item
             width: 80,
-            child: Column(
-              children: [
-                Container(
-                  width: 70,
-                  height: 70,
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: Colors.blue.withAlpha(25),
-                    borderRadius: BorderRadius.circular(15),
+            child: InkWell(
+              borderRadius: BorderRadius.circular(15),
+              onTap: () => context.push(
+                '/products?categoryId=${category.id}&categoryName=${Uri.encodeComponent(category.name)}',
+              ),
+              child: Column(
+                children: [
+                  Container(
+                    width: 70,
+                    height: 70,
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: Colors.blue.withAlpha(25),
+                      borderRadius: BorderRadius.circular(15),
+                    ),
+                    child: Icon(
+                      IconMapper.getCategoryIcon(category.name),
+                      size: 32,
+                      color: Colors.blue.shade700,
+                    ),
                   ),
-                  child: CachedNetworkImage(
-                    imageUrl: imageUrl ?? '',
-                    color: Colors.blue.shade700,
-                    errorWidget: (context, url, error) => const Icon(Icons.image_not_supported, color: Colors.grey),
+                  const SizedBox(height: 8),
+                  Text(
+                    category.name,
+                    textAlign: TextAlign.center,
+                    maxLines: 1, // Chỉ hiển thị 1 dòng
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
                   ),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  category.name,
-                  textAlign: TextAlign.center,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
-                ),
-              ],
+                ],
+              ),
             ),
           );
         },
       ),
     );
   }
-  
+
   Widget _buildHorizontalProductList(List<Product> products) {
     if (products.isEmpty) {
-      return const SizedBox(height: 290, child: Center(child: Text('Không có sản phẩm nào.')));
+      return const SizedBox(
+          height: 290, child: Center(child: Text('Không có sản phẩm nào.')));
     }
     return SizedBox(
       height: 290,
@@ -5867,7 +6070,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       ),
     );
   }
-  
+
   Widget _buildLoadingIndicator({double height = 290, bool isGrid = false}) {
     if (isGrid) {
       return GridView.count(
@@ -5878,7 +6081,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         childAspectRatio: 0.65,
         crossAxisSpacing: 16,
         mainAxisSpacing: 16,
-        children: List.generate(4, (index) => const Card(child: Center(child: CircularProgressIndicator()))),
+        children: List.generate(
+            4,
+            (index) =>
+                const Card(child: Center(child: CircularProgressIndicator()))),
       );
     }
     return SizedBox(
@@ -5903,7 +6109,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     );
   }
 
-  Widget _buildForYouProductsGrid(BuildContext context, List<Product> products) {
+  Widget _buildForYouProductsGrid(
+      BuildContext context, List<Product> products) {
     return GridView.builder(
       shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
@@ -5921,6 +6128,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     );
   }
 }
+
 
 ================================================================================
 END OF FILE: lib/features/products/presentation/screens/home_screen.dart
@@ -6445,7 +6653,19 @@ import 'package:smartshop_mobile/features/products/presentation/widgets/product_
 
 class ProductsScreen extends ConsumerStatefulWidget {
   final bool isFeaturedOnly;
-  const ProductsScreen({super.key, this.isFeaturedOnly = false});
+  final String? categoryId; 
+  final String? categoryName;
+  final String? brandId;
+  final String? brandName;
+
+  const ProductsScreen({
+    super.key, 
+    this.isFeaturedOnly = false,
+    this.categoryId,
+    this.categoryName,
+    this.brandId,
+    this.brandName,
+  });
 
   @override
   ConsumerState<ProductsScreen> createState() => _ProductsScreenState();
@@ -6462,11 +6682,21 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
   @override
   void initState() {
     super.initState();
-    // Khởi tạo bộ lọc ban đầu, không gọi ref ở đây
+    // Cập nhật logic khởi tạo bộ lọc
+    Map<String, dynamic> initialCondition = {};
+    if (widget.isFeaturedOnly) {
+      initialCondition['isFeatured'] = true;
+    }
+    if (widget.categoryId != null) {
+      initialCondition['category'] = widget.categoryId;
+    }
+    if (widget.brandId != null) initialCondition['brand'] = widget.brandId;
+
     _filter = ProductListFilter(
-      condition: widget.isFeaturedOnly ? {'isFeatured': true} : {},
+      condition: initialCondition,
       orderBy: 'CREATED_DESC',
     );
+
     _scrollController.addListener(_onScroll);
   }
 
@@ -6518,7 +6748,7 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(widget.isFeaturedOnly ? 'Sản phẩm nổi bật' : 'Tất cả Sản phẩm'),
+        title: Text(widget.brandName ?? widget.categoryName ?? (widget.isFeaturedOnly ? 'Sản phẩm nổi bật' : 'Tất cả Sản phẩm')),
         actions: [
           PopupMenuButton<String>(
             icon: const Icon(Icons.sort),
