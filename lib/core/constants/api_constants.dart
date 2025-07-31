@@ -6,7 +6,7 @@ class ApiConstants {
   // ip wifi trường UMT: 10.12.1.130
   // ip wifi nhà: 192.168.1.3
 
-  static const String ipAddress = "10.12.2.217"; // <<-- THAY IP CỦA BẠN VÀO ĐÂY 
+  static const String ipAddress = "192.168.1.2"; // <<-- THAY IP CỦA BẠN VÀO ĐÂY 
   static const String baseUrl = "http://$ipAddress:4000";
   static const String graphqlUrl = "$baseUrl/"; 
 }
