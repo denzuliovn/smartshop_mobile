@@ -1,11 +1,36 @@
 import 'package:smartshop_mobile/core/constants/api_constants.dart';
 
+class Address {
+  final String id, fullName, phone, address, city;
+  final bool isDefault;
+
+  Address({
+    required this.id, required this.fullName, required this.phone,
+    required this.address, required this.city, required this.isDefault,
+  });
+
+  factory Address.fromJson(Map<String, dynamic> json) {
+    return Address(
+      id: json['_id'],
+      fullName: json['fullName'],
+      phone: json['phone'],
+      address: json['address'],
+      city: json['city'],
+      isDefault: json['isDefault'] ?? false,
+    );
+  }
+}
+
+
 class User {
   final String id, username, email, firstName, lastName, role, avatarUrl;
+  final List<Address> addresses;
+
   User({
     required this.id, required this.username, required this.email,
     required this.firstName, required this.lastName, required this.role,
     required this.avatarUrl,
+    this.addresses = const [],
   });
 
   factory User.fromJson(Map<String, dynamic> json) {
@@ -22,6 +47,11 @@ class User {
       finalAvatarUrl = rawAvatarUrl ?? 'https://i.pravatar.cc/150';
     }
 
+    // THÊM LOGIC XỬ LÝ ADDRESSES
+    final List<dynamic> addressList = json['addresses'] ?? [];
+    final List<Address> addresses = addressList.map((a) => Address.fromJson(a)).toList();
+
+
     return User(
       id: json['_id'] ?? 'N/A',
       username: json['username'] ?? 'user',
@@ -30,6 +60,7 @@ class User {
       lastName: json['lastName'] ?? '',
       role: json['role'] ?? 'customer',
       avatarUrl: finalAvatarUrl, // <-- Sử dụng biến đã được xử lý
+      addresses: addresses,
     );
   }
 }

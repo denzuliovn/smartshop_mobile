@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:smartshop_mobile/features/cart/application/cart_provider.dart';
 import 'package:smartshop_mobile/features/profile/data/order_repository.dart';
+import 'package:smartshop_mobile/features/auth/application/auth_provider.dart';
 
 class CheckoutScreen extends ConsumerStatefulWidget {
   const CheckoutScreen({super.key});
@@ -18,6 +19,29 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
   final _addressController = TextEditingController();
   String _paymentMethod = 'cod';
   bool _isLoading = false;
+
+  @override
+  void initState() {
+    super.initState();
+    // Dùng addPostFrameCallback để đảm bảo widget đã build xong và có thể truy cập 'ref'
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final authState = ref.read(authProvider);
+      if (authState is Authenticated) {
+        final user = authState.user;
+        // Tìm địa chỉ mặc định trong danh sách địa chỉ của user
+        try {
+          final defaultAddress = user.addresses.firstWhere((addr) => addr.isDefault);
+          _nameController.text = defaultAddress.fullName;
+          _phoneController.text = defaultAddress.phone;
+          // Kết hợp địa chỉ và thành phố để hiển thị đầy đủ
+          _addressController.text = "${defaultAddress.address}, ${defaultAddress.city}";
+        } catch (e) {
+          // Xử lý trường hợp không tìm thấy địa chỉ mặc định
+          print("Không tìm thấy địa chỉ giao hàng mặc định.");
+        }
+      }
+    });
+  }
 
   Future<void> _handlePlaceOrder() async {
     if (_formKey.currentState!.validate()) {

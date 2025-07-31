@@ -32,6 +32,9 @@ import 'package:smartshop_mobile/features/admin/presentation/screens/admin_creat
 import 'package:smartshop_mobile/features/admin/presentation/screens/admin_edit_product_screen.dart';
 import 'package:smartshop_mobile/features/products/presentation/screens/write_review_screen.dart';
 import 'package:smartshop_mobile/features/profile/presentation/screens/wishlist_screen.dart';
+import 'package:smartshop_mobile/features/profile/presentation/screens/add_edit_address_screen.dart';
+import 'package:smartshop_mobile/core/mock_data/models.dart';
+import 'package:smartshop_mobile/features/admin/presentation/screens/admin_product_detail_screen.dart';
 import 'dart:async';
 
 class GoRouterRefreshStream extends ChangeNotifier {
@@ -87,6 +90,13 @@ final routerProvider = Provider<GoRouter>((ref) {
           GoRoute(
             path: '/admin/products/create',
             builder: (context, state) => const AdminCreateProductScreen(),
+          ),
+          GoRoute(
+            path: '/admin/products/detail/:productId',
+            builder: (context, state) {
+              final productId = state.pathParameters['productId']!;
+              return AdminProductDetailScreen(productId: productId);
+            },
           ),
           GoRoute(
             path: '/admin/products/edit/:productId',
@@ -181,7 +191,18 @@ final routerProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(path: '/wishlist', builder: (context, state) => const WishlistScreen()),
 
-
+      GoRoute(
+        path: '/addresses',
+        builder: (context, state) => const AddressScreen(),
+      ),
+      // ===== THÊM ROUTE MỚI VÀO ĐÂY =====
+      GoRoute(
+        path: '/add-edit-address',
+        builder: (context, state) {
+          final address = state.extra as Address?; // Nhận địa chỉ (nếu có)
+          return AddEditAddressScreen(address: address);
+        },
+      ),
 
     ],
     redirect: (context, state) {

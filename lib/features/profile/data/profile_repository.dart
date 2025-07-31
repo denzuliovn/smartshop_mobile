@@ -8,6 +8,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:smartshop_mobile/core/api/graphql_client.dart';
 import 'package:smartshop_mobile/core/mock_data/models.dart';
 import 'package:smartshop_mobile/features/profile/data/profile_graphql.dart';
+import 'package:smartshop_mobile/features/profile/data/address_graphql.dart';
 
 // Provider cho repository (không thay đổi)
 final profileRepositoryProvider = Provider((ref) {
@@ -17,6 +18,48 @@ final profileRepositoryProvider = Provider((ref) {
 class ProfileRepository {
   final GraphQLClient client;
   ProfileRepository({required this.client});
+
+  // Address
+  Future<User> addAddress(Map<String, dynamic> addressData) async {
+    final options = MutationOptions(
+      document: gql(AddressGraphQL.addAddress),
+      variables: {'input': addressData},
+    );
+    final result = await client.mutate(options);
+    if (result.hasException) throw Exception(result.exception.toString());
+    return User.fromJson(result.data!['addAddress']);
+  }
+
+  Future<User> updateAddress(String addressId, Map<String, dynamic> addressData) async {
+    final options = MutationOptions(
+      document: gql(AddressGraphQL.updateAddress),
+      variables: {'addressId': addressId, 'input': addressData},
+    );
+    final result = await client.mutate(options);
+    if (result.hasException) throw Exception(result.exception.toString());
+    return User.fromJson(result.data!['updateAddress']);
+  }
+
+  Future<User> deleteAddress(String addressId) async {
+    final options = MutationOptions(
+      document: gql(AddressGraphQL.deleteAddress),
+      variables: {'addressId': addressId},
+    );
+    final result = await client.mutate(options);
+    if (result.hasException) throw Exception(result.exception.toString());
+    return User.fromJson(result.data!['deleteAddress']);
+  }
+
+  Future<User> setDefaultAddress(String addressId) async {
+    final options = MutationOptions(
+      document: gql(AddressGraphQL.setDefaultAddress),
+      variables: {'addressId': addressId},
+    );
+    final result = await client.mutate(options);
+    if (result.hasException) throw Exception(result.exception.toString());
+    return User.fromJson(result.data!['setDefaultAddress']);
+  }
+
 
   // ===== THAY THẾ NỘI DUNG CỦA HÀM NÀY =====
   Future<User> updateProfile({

@@ -16,8 +16,8 @@ class ProductGraphQL {
   ''';
 
   static const String getProducts = '''
-    query GetProducts(\$first: Int, \$offset: Int, \$orderBy: ProductsOrderBy) {
-      products(first: \$first, offset: \$offset, orderBy: \$orderBy) {
+    query GetProducts(\$first: Int, \$offset: Int, \$orderBy: ProductsOrderBy, \$condition: ProductConditionInput) {
+      products(first: \$first, offset: \$offset, orderBy: \$orderBy, condition: \$condition) {
         nodes {
           ...ProductData
         }
