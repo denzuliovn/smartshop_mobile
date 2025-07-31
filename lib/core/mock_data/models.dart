@@ -1,3 +1,5 @@
+import 'package:smartshop_mobile/core/constants/api_constants.dart';
+
 class User {
   final String id, username, email, firstName, lastName, role, avatarUrl;
   User({
@@ -7,6 +9,19 @@ class User {
   });
 
   factory User.fromJson(Map<String, dynamic> json) {
+    String? rawAvatarUrl = json['avatarUrl'];
+    String finalAvatarUrl;
+
+    // Kiểm tra xem avatarUrl có phải là đường dẫn tương đối không
+    if (rawAvatarUrl != null && rawAvatarUrl.startsWith('/')) {
+      // Nếu đúng, thêm baseUrl vào trước
+      finalAvatarUrl = "${ApiConstants.baseUrl}$rawAvatarUrl"; //
+    } else {
+      // Nếu đã là URL đầy đủ, hoặc là null, thì giữ nguyên
+      // Nếu null thì dùng ảnh mặc định
+      finalAvatarUrl = rawAvatarUrl ?? 'https://i.pravatar.cc/150';
+    }
+
     return User(
       id: json['_id'] ?? 'N/A',
       username: json['username'] ?? 'user',
@@ -14,7 +29,7 @@ class User {
       firstName: json['firstName'] ?? 'Người dùng',
       lastName: json['lastName'] ?? '',
       role: json['role'] ?? 'customer',
-      avatarUrl: json['avatarUrl'] ?? 'https://i.pravatar.cc/150',
+      avatarUrl: finalAvatarUrl, // <-- Sử dụng biến đã được xử lý
     );
   }
 }

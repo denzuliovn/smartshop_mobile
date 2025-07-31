@@ -57,6 +57,11 @@ class GraphQLConfig {
     await _secureStorage.write(key: 'smartshop_user', value: jsonEncode(user));
   }
   
+  // Hàm mới chỉ để cập nhật thông tin user trong storage (để không ghi đè token khi update profile)
+  static Future<void> updateStoredUser(dynamic user) async {
+    await _secureStorage.write(key: 'smartshop_user', value: jsonEncode(user)); //
+  }
+
   // Hàm tiện ích để lấy thông tin user đã lưu
   static Future<Map<String, dynamic>?> getStoredUser() async {
     try {

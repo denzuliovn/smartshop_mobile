@@ -35,54 +35,90 @@ class AuthNotifier extends StateNotifier<AuthState> {
 
   // --- HÀM ĐÃ ĐƯỢC CẬP NHẬT LOGIC ---
   Future<void> _checkAuthStatus() async {
-    // Đọc thông tin user đã lưu từ secure storage
-    final userMap = await GraphQLConfig.getStoredUser();
-
+    final userMap = await GraphQLConfig.getStoredUser(); 
     if (userMap != null) {
-      // Nếu có, tạo đối tượng User và chuyển sang trạng thái Authenticated
-      final user = User(
-        id: userMap['_id'] ?? 'N/A',
-        username: userMap['username'] ?? 'user',
-        email: userMap['email'] ?? 'N/A',
-        firstName: userMap['firstName'] ?? 'Người dùng',
-        lastName: userMap['lastName'] ?? '',
-        role: userMap['role'] ?? 'customer',
-        avatarUrl: 'https://i.pravatar.cc/150?u=${userMap['_id']}',
-      );
-      state = Authenticated(user);
+      // Dùng User.fromJson để đảm bảo avatarUrl được xử lý đúng
+      // từ dữ liệu đã lưu.
+      final user = User.fromJson(userMap); 
+      state = Authenticated(user); 
     } else {
-      // Nếu không, ở trạng thái Unauthenticated
       state = Unauthenticated();
     }
   }
 
+  // Update info
+  void updateUserData(User updatedUser) {
+    print('[AUTH] updateUserData nhận được avatarUrl: ${updatedUser.avatarUrl}');
+    final currentState = state;
+    if (currentState is Authenticated) {
+      // Luôn coi đối tượng `updatedUser` nhận được từ server 
+      // là phiên bản đầy đủ và chính xác nhất.
+      // Gán thẳng nó làm state mới.
+      state = Authenticated(updatedUser);
+
+      // Cập nhật lại thông tin trong secure storage với đối tượng user hoàn chỉnh này.
+      GraphQLConfig.updateStoredUser(
+          {
+              '_id': updatedUser.id,
+              'username': updatedUser.username,
+              'email': updatedUser.email,
+              'firstName': updatedUser.firstName,
+              'lastName': updatedUser.lastName,
+              'role': updatedUser.role,
+              // `updatedUser.avatarUrl` lúc này đã là URL đầy đủ và mới nhất
+              'avatarUrl': updatedUser.avatarUrl,
+          }
+      );
+    }
+  }
+
   Future<void> login(String username, String password) async {
-    state = AuthLoading();
+    state = AuthLoading(); 
     try {
       final responseData = await _ref.read(authRepositoryProvider).login(username, password);
       final userMap = responseData['user'];
-      final token = responseData['jwt'];
+      final token = responseData['jwt']; 
 
-      await GraphQLConfig.setToken(token, userMap);
+      await GraphQLConfig.setToken(token, userMap); 
 
-      final user = User(
-        id: userMap['_id'],
-        username: userMap['username'],
-        email: userMap['email'],
-        firstName: userMap['firstName'],
-        lastName: userMap['lastName'],
-        role: userMap['role'],
-        avatarUrl: 'https://i.pravatar.cc/150?u=${userMap['_id']}',
-      );
-      
-      state = Authenticated(user);
+      // SỬA Ở ĐÂY: Dùng User.fromJson để đảm bảo avatarUrl từ server được xử lý đúng.
+      final user = User.fromJson(userMap);
+      state = Authenticated(user); 
 
     } catch (e) {
-      state = AuthError(e.toString().replaceFirst("Exception: ", ""));
+      state = AuthError(e.toString().replaceFirst("Exception: ", "")); 
       await Future.delayed(const Duration(seconds: 2));
-      if (mounted) state = Unauthenticated();
+      if (mounted) state = Unauthenticated(); 
     }
   }
+
+  // Future<void> login(String username, String password) async {
+  //   state = AuthLoading();
+  //   try {
+  //     final responseData = await _ref.read(authRepositoryProvider).login(username, password);
+  //     final userMap = responseData['user'];
+  //     final token = responseData['jwt'];
+
+  //     await GraphQLConfig.setToken(token, userMap);
+
+  //     final user = User(
+  //       id: userMap['_id'],
+  //       username: userMap['username'],
+  //       email: userMap['email'],
+  //       firstName: userMap['firstName'],
+  //       lastName: userMap['lastName'],
+  //       role: userMap['role'],
+  //       avatarUrl: 'https://i.pravatar.cc/150?u=${userMap['_id']}',
+  //     );
+      
+  //     state = Authenticated(user);
+
+  //   } catch (e) {
+  //     state = AuthError(e.toString().replaceFirst("Exception: ", ""));
+  //     await Future.delayed(const Duration(seconds: 2));
+  //     if (mounted) state = Unauthenticated();
+  //   }
+  // }
   
   Future<void> register({
     required String username,
