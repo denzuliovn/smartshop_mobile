@@ -114,8 +114,14 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
                   // Avatar
                   CircleAvatar(
                     radius: 50,
-                    backgroundImage: NetworkImage(user?.avatarUrl ?? 'https://i.pravatar.cc/150'),
+                    backgroundImage: user?.avatarUrl != null
+                        ? NetworkImage(user!.avatarUrl!)
+                        : null,
+                    child: user?.avatarUrl == null
+                        ? Icon(Icons.person, size: 60, color: Colors.grey.shade400)
+                        : null,
                   ),
+
                   // Nút chỉnh sửa
                   Positioned(
                     bottom: 0,
