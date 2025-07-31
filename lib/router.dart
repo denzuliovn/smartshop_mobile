@@ -35,6 +35,8 @@ import 'package:smartshop_mobile/features/profile/presentation/screens/wishlist_
 import 'package:smartshop_mobile/features/profile/presentation/screens/add_edit_address_screen.dart';
 import 'package:smartshop_mobile/core/mock_data/models.dart';
 import 'package:smartshop_mobile/features/admin/presentation/screens/admin_product_detail_screen.dart';
+import 'package:smartshop_mobile/features/products/presentation/screens/all_categories_screen.dart';
+import 'package:smartshop_mobile/features/products/presentation/screens/all_brands_screen.dart';
 import 'dart:async';
 
 class GoRouterRefreshStream extends ChangeNotifier {
@@ -123,13 +125,19 @@ final routerProvider = Provider<GoRouter>((ref) {
         builder: (context, state) {
           // Lấy tất cả các tham số từ URL
           final isFeatured = state.uri.queryParameters['featured'] == 'true';
+          final categoryId = state.uri.queryParameters['categoryId'];
+          final categoryName = state.uri.queryParameters['categoryName'];
+          final brandId = state.uri.queryParameters['brandId'];
+          final brandName = state.uri.queryParameters['brandName'];
           // final categoryId = state.uri.queryParameters['categoryId'];
           // final brandId = state.uri.queryParameters['brandId'];
           
           return ProductsScreen(
             isFeaturedOnly: isFeatured,
-            // categoryId: categoryId,
-            // brandId: brandId,
+            categoryId: categoryId,
+            categoryName: categoryName,
+            brandId: brandId,
+            brandName: brandName,
           );
         },
       ),
@@ -146,6 +154,14 @@ final routerProvider = Provider<GoRouter>((ref) {
         },
       ),
 
+      GoRoute(
+        path: '/brands',
+        builder: (context, state) => const AllBrandsScreen(),
+      ),
+      GoRoute(
+        path: '/categories',
+        builder: (context, state) => const AllCategoriesScreen(),
+      ),
       GoRoute(path: '/search', builder: (context, state) => const SearchScreen()),
       GoRoute(path: '/login', builder: (context, state) => const LoginScreen()),
       GoRoute(path: '/register', builder: (context, state) => const RegisterScreen()),

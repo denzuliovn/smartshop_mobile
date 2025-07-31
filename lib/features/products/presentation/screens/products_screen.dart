@@ -8,7 +8,19 @@ import 'package:smartshop_mobile/features/products/presentation/widgets/product_
 
 class ProductsScreen extends ConsumerStatefulWidget {
   final bool isFeaturedOnly;
-  const ProductsScreen({super.key, this.isFeaturedOnly = false});
+  final String? categoryId; 
+  final String? categoryName;
+  final String? brandId;
+  final String? brandName;
+
+  const ProductsScreen({
+    super.key, 
+    this.isFeaturedOnly = false,
+    this.categoryId,
+    this.categoryName,
+    this.brandId,
+    this.brandName,
+  });
 
   @override
   ConsumerState<ProductsScreen> createState() => _ProductsScreenState();
@@ -25,11 +37,21 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
   @override
   void initState() {
     super.initState();
-    // Khởi tạo bộ lọc ban đầu, không gọi ref ở đây
+    // Cập nhật logic khởi tạo bộ lọc
+    Map<String, dynamic> initialCondition = {};
+    if (widget.isFeaturedOnly) {
+      initialCondition['isFeatured'] = true;
+    }
+    if (widget.categoryId != null) {
+      initialCondition['category'] = widget.categoryId;
+    }
+    if (widget.brandId != null) initialCondition['brand'] = widget.brandId;
+
     _filter = ProductListFilter(
-      condition: widget.isFeaturedOnly ? {'isFeatured': true} : {},
+      condition: initialCondition,
       orderBy: 'CREATED_DESC',
     );
+
     _scrollController.addListener(_onScroll);
   }
 
@@ -81,7 +103,7 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(widget.isFeaturedOnly ? 'Sản phẩm nổi bật' : 'Tất cả Sản phẩm'),
+        title: Text(widget.brandName ?? widget.categoryName ?? (widget.isFeaturedOnly ? 'Sản phẩm nổi bật' : 'Tất cả Sản phẩm')),
         actions: [
           PopupMenuButton<String>(
             icon: const Icon(Icons.sort),
