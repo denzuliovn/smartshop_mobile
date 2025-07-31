@@ -43,7 +43,14 @@ class ProfileScreen extends ConsumerWidget {
               children: [
                 CircleAvatar(
                   radius: 40,
-                  backgroundImage: NetworkImage(user.avatarUrl),
+                  // Kiểm tra xem avatarUrl có null không
+                  backgroundImage: user.avatarUrl != null
+                      ? NetworkImage(user.avatarUrl!)
+                      : null,
+                  // Nếu không có ảnh, hiển thị icon mặc định
+                  child: user.avatarUrl == null
+                      ? const Icon(Icons.person, size: 50, color: Colors.white70)
+                      : null,
                 ),
                 const SizedBox(width: 20),
                 Expanded(

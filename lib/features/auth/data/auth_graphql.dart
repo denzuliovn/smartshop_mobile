@@ -1,16 +1,25 @@
 class AuthGraphQL {
   static const String loginMutation = r'''
-    mutation Login($input: LoginInput!) {
-      login(input: $input) {
-        success
-        message
-        data {
-          jwt
-          user { _id username email firstName lastName role }
+  mutation Login($input: LoginInput!) {
+    login(input: $input) {
+      success
+      message
+      data {
+        jwt
+        user {
+          _id
+          username
+          email
+          firstName
+          lastName
+          role
+          avatarUrl 
         }
       }
     }
-  ''';
+  }
+''';
+
 
   static const String registerMutation = r'''
     mutation Register($input: RegisterInput!) {

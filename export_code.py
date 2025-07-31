@@ -54,21 +54,6 @@ def generate_summary():
     prompt = """
 Bối cảnh: Tôi đang phát triển một ứng dụng di động thương mại điện tử tên là "SmartShop" bằng Flutter. Bạn sẽ đóng vai trò là chuyên gia lập trình Flutter, tiếp tục hướng dẫn tôi hoàn thành dự án này. Dự án được xây dựng dựa trên mã nguồn của một website hiện có với backend là Node.js/GraphQL. Toàn bộ giao diện và các luồng chức năng cơ bản đã được xây dựng, và chúng ta đang trong giai đoạn kết nối giao diện với API thật.
 
-Nhiệm vụ của bạn: Hướng dẫn tôi từng bước để hoàn thành các tính năng còn lại, gỡ lỗi và tối ưu hóa ứng dụng. Hãy duy trì cách làm việc tương tác: bạn đưa ra hướng dẫn cho một bước, tôi thực hiện, và sau đó tôi sẽ nói "tiếp tục" để bạn hướng dẫn bước tiếp theo.
-
-Dưới đây là toàn bộ thông tin về dự án tính đến thời điểm hiện tại.
-
----
-
-### I. CHECKLIST TIẾN ĐỘ DỰ ÁN
-
-- ✅ **Phase 1 & 2:** Nền tảng và Giao diện (Đã hoàn thành)
-- ⏳ **Phase 3:** Kết nối Backend (Đang thực hiện)
-  - ✅ **3.1 - 3.4:** Xác thực, Sản phẩm, Giỏ hàng, Đơn hàng (Đã hoàn thành)
-  - ⬜ **3.5:** Kết nối các Tính năng Phụ (Bước tiếp theo)
-- ⬜ **Phase 4:** Hoàn thiện & Tối ưu (Chưa bắt đầu)
-
----
 
 ### II. TOÀN BỘ CODE CỦA DỰ ÁN
 """

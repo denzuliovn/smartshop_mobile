@@ -23,7 +23,8 @@ class Address {
 
 
 class User {
-  final String id, username, email, firstName, lastName, role, avatarUrl;
+  final String id, username, email, firstName, lastName, role;
+  final String? avatarUrl;
   final List<Address> addresses;
 
   User({
@@ -35,33 +36,33 @@ class User {
 
   factory User.fromJson(Map<String, dynamic> json) {
     String? rawAvatarUrl = json['avatarUrl'];
-    String finalAvatarUrl;
+    String? finalAvatarUrl;
 
-    // Kiểm tra xem avatarUrl có phải là đường dẫn tương đối không
-    if (rawAvatarUrl != null && rawAvatarUrl.startsWith('/')) {
-      // Nếu đúng, thêm baseUrl vào trước
-      finalAvatarUrl = "${ApiConstants.baseUrl}$rawAvatarUrl"; //
-    } else {
-      // Nếu đã là URL đầy đủ, hoặc là null, thì giữ nguyên
-      // Nếu null thì dùng ảnh mặc định
-      finalAvatarUrl = rawAvatarUrl ?? 'https://i.pravatar.cc/150';
-    }
+  // Chỉ xử lý URL nếu nó không null và không rỗng
+  if (rawAvatarUrl != null && rawAvatarUrl.isNotEmpty) {
+      if (rawAvatarUrl.startsWith('/')) {
+          // Nếu là đường dẫn tương đối, thêm baseUrl
+          finalAvatarUrl = "${ApiConstants.baseUrl}$rawAvatarUrl";
+      } else {
+          // Nếu đã là URL đầy đủ, giữ nguyên
+          finalAvatarUrl = rawAvatarUrl;
+      }
+  }
+  // Nếu rawAvatarUrl là null hoặc rỗng, finalAvatarUrl sẽ vẫn là null
 
-    // THÊM LOGIC XỬ LÝ ADDRESSES
-    final List<dynamic> addressList = json['addresses'] ?? [];
-    final List<Address> addresses = addressList.map((a) => Address.fromJson(a)).toList();
+  final List<dynamic> addressList = json['addresses'] ?? [];
+  final List<Address> addresses = addressList.map((a) => Address.fromJson(a)).toList();
 
-
-    return User(
-      id: json['_id'] ?? 'N/A',
-      username: json['username'] ?? 'user',
-      email: json['email'] ?? 'N/A',
-      firstName: json['firstName'] ?? 'Người dùng',
-      lastName: json['lastName'] ?? '',
-      role: json['role'] ?? 'customer',
-      avatarUrl: finalAvatarUrl, // <-- Sử dụng biến đã được xử lý
-      addresses: addresses,
-    );
+  return User(
+    id: json['_id'] ?? 'N/A',
+    username: json['username'] ?? 'user',
+    email: json['email'] ?? 'N/A',
+    firstName: json['firstName'] ?? 'Người dùng',
+    lastName: json['lastName'] ?? '',
+    role: json['role'] ?? 'customer',
+    avatarUrl: finalAvatarUrl, // <-- Bây giờ có thể là null
+    addresses: addresses,
+  );
   }
 }
 
