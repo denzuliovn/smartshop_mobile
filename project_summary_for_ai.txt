@@ -1,7 +1,7 @@
 ================================================================================
 TÓM TẮT DỰ ÁN FLUTTER - SMARTSHOP MOBILE
 ================================================================================
-Tạo lúc: 2025-07-31 15:38:17
+Tạo lúc: 2025-08-01 00:20:20
 
 Dưới đây là toàn bộ code cần thiết của dự án. Hãy phân tích và chuẩn bị để tiếp tục hướng dẫn tôi.
 
@@ -25,7 +25,8 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
-
+  speech_to_text: ^6.6.0
+  permission_handler: ^11.0.1
 
   # shared dependencies
   share_plus: ^9.0.0
@@ -464,7 +465,8 @@ class ApiConstants {
   // ip wifi trường UMT: 10.12.1.130
   // ip wifi nhà: 192.168.1.3
 
-  static const String ipAddress = "10.12.2.217"; // <<-- THAY IP CỦA BẠN VÀO ĐÂY 
+
+  static const String ipAddress = "192.168.1.21"; // <<-- THAY IP CỦA BẠN VÀO ĐÂY 
   static const String baseUrl = "http://$ipAddress:4000";
   static const String graphqlUrl = "$baseUrl/"; 
 }
@@ -570,7 +572,8 @@ class Address {
 
 
 class User {
-  final String id, username, email, firstName, lastName, role, avatarUrl;
+  final String id, username, email, firstName, lastName, role;
+  final String? avatarUrl;
   final List<Address> addresses;
 
   User({
@@ -582,33 +585,33 @@ class User {
 
   factory User.fromJson(Map<String, dynamic> json) {
     String? rawAvatarUrl = json['avatarUrl'];
-    String finalAvatarUrl;
+    String? finalAvatarUrl;
 
-    // Kiểm tra xem avatarUrl có phải là đường dẫn tương đối không
-    if (rawAvatarUrl != null && rawAvatarUrl.startsWith('/')) {
-      // Nếu đúng, thêm baseUrl vào trước
-      finalAvatarUrl = "${ApiConstants.baseUrl}$rawAvatarUrl"; //
-    } else {
-      // Nếu đã là URL đầy đủ, hoặc là null, thì giữ nguyên
-      // Nếu null thì dùng ảnh mặc định
-      finalAvatarUrl = rawAvatarUrl ?? 'https://i.pravatar.cc/150';
-    }
+  // Chỉ xử lý URL nếu nó không null và không rỗng
+  if (rawAvatarUrl != null && rawAvatarUrl.isNotEmpty) {
+      if (rawAvatarUrl.startsWith('/')) {
+          // Nếu là đường dẫn tương đối, thêm baseUrl
+          finalAvatarUrl = "${ApiConstants.baseUrl}$rawAvatarUrl";
+      } else {
+          // Nếu đã là URL đầy đủ, giữ nguyên
+          finalAvatarUrl = rawAvatarUrl;
+      }
+  }
+  // Nếu rawAvatarUrl là null hoặc rỗng, finalAvatarUrl sẽ vẫn là null
 
-    // THÊM LOGIC XỬ LÝ ADDRESSES
-    final List<dynamic> addressList = json['addresses'] ?? [];
-    final List<Address> addresses = addressList.map((a) => Address.fromJson(a)).toList();
+  final List<dynamic> addressList = json['addresses'] ?? [];
+  final List<Address> addresses = addressList.map((a) => Address.fromJson(a)).toList();
 
-
-    return User(
-      id: json['_id'] ?? 'N/A',
-      username: json['username'] ?? 'user',
-      email: json['email'] ?? 'N/A',
-      firstName: json['firstName'] ?? 'Người dùng',
-      lastName: json['lastName'] ?? '',
-      role: json['role'] ?? 'customer',
-      avatarUrl: finalAvatarUrl, // <-- Sử dụng biến đã được xử lý
-      addresses: addresses,
-    );
+  return User(
+    id: json['_id'] ?? 'N/A',
+    username: json['username'] ?? 'user',
+    email: json['email'] ?? 'N/A',
+    firstName: json['firstName'] ?? 'Người dùng',
+    lastName: json['lastName'] ?? '',
+    role: json['role'] ?? 'customer',
+    avatarUrl: finalAvatarUrl, // <-- Bây giờ có thể là null
+    addresses: addresses,
+  );
   }
 }
 
@@ -3093,17 +3096,26 @@ FILE: lib/features/auth/data/auth_graphql.dart
 ================================================================================
 class AuthGraphQL {
   static const String loginMutation = r'''
-    mutation Login($input: LoginInput!) {
-      login(input: $input) {
-        success
-        message
-        data {
-          jwt
-          user { _id username email firstName lastName role }
+  mutation Login($input: LoginInput!) {
+    login(input: $input) {
+      success
+      message
+      data {
+        jwt
+        user {
+          _id
+          username
+          email
+          firstName
+          lastName
+          role
+          avatarUrl 
         }
       }
     }
-  ''';
+  }
+''';
+
 
   static const String registerMutation = r'''
     mutation Register($input: RegisterInput!) {
@@ -4557,59 +4569,348 @@ END OF FILE: lib/features/products/application/product_providers.dart
 FILE: lib/features/products/application/search_provider.dart
 ================================================================================
 import 'dart:async';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:speech_to_text/speech_to_text.dart' as stt;
+import 'package:speech_to_text/speech_recognition_result.dart';
 import 'package:smartshop_mobile/core/mock_data/models.dart';
 import 'package:smartshop_mobile/features/products/data/product_repository.dart';
 
 // 1. Định nghĩa các trạng thái của việc tìm kiếm
 abstract class SearchState {}
+
 class SearchInitial extends SearchState {}
+
 class SearchLoading extends SearchState {}
+
 class SearchLoaded extends SearchState {
   final List<Product> products;
-  SearchLoaded(this.products);
+  final String query;
+  SearchLoaded(this.products, this.query);
 }
+
 class SearchError extends SearchState {
   final String message;
   SearchError(this.message);
 }
 
-// 2. Tạo StateNotifier
+// 2. Định nghĩa trạng thái Speech-to-Text
+enum SpeechStatus { inactive, listening, stopped, error }
+
+class SpeechState {
+  final SpeechStatus status;
+  final String recognizedText;
+  final String errorMessage;
+  final bool isAvailable;
+  final double confidenceLevel;
+
+  const SpeechState({
+    this.status = SpeechStatus.inactive,
+    this.recognizedText = '',
+    this.errorMessage = '',
+    this.isAvailable = false,
+    this.confidenceLevel = 0.0,
+  });
+
+  SpeechState copyWith({
+    SpeechStatus? status,
+    String? recognizedText,
+    String? errorMessage,
+    bool? isAvailable,
+    double? confidenceLevel,
+  }) {
+    return SpeechState(
+      status: status ?? this.status,
+      recognizedText: recognizedText ?? this.recognizedText,
+      errorMessage: errorMessage ?? this.errorMessage,
+      isAvailable: isAvailable ?? this.isAvailable,
+      confidenceLevel: confidenceLevel ?? this.confidenceLevel,
+    );
+  }
+}
+
+// 3. Tạo StateNotifier với Speech-to-Text
 class SearchNotifier extends StateNotifier<SearchState> {
   final Ref _ref;
   Timer? _debounce;
+  late stt.SpeechToText _speech;
+  
+  // Speech state
+  SpeechState _speechState = const SpeechState();
+  SpeechState get speechState => _speechState;
+  
+  // Stream controller để emit speech state changes
+  final _speechStateController = StreamController<SpeechState>.broadcast();
+  Stream<SpeechState> get speechStateStream => _speechStateController.stream;
 
-  SearchNotifier(this._ref) : super(SearchInitial());
+  SearchNotifier(this._ref) : super(SearchInitial()) {
+    _initializeSpeech();
+  }
 
+  // Khởi tạo Speech-to-Text
+  Future<void> _initializeSpeech() async {
+    try {
+      _speech = stt.SpeechToText();
+      bool isAvailable = await _speech.initialize(
+        onStatus: _onSpeechStatus,
+        onError: _onSpeechError,
+      );
+      
+      _updateSpeechState(_speechState.copyWith(isAvailable: isAvailable));
+    } catch (e) {
+      _updateSpeechState(_speechState.copyWith(
+        errorMessage: 'Không thể khởi tạo Speech-to-Text: $e',
+        status: SpeechStatus.error,
+      ));
+    }
+  }
+
+  // Cập nhật speech state và emit stream
+  void _updateSpeechState(SpeechState newState) {
+    _speechState = newState;
+    _speechStateController.add(_speechState);
+  }
+
+  // Callback khi status speech thay đổi
+  void _onSpeechStatus(String status) {
+    debugPrint('Speech status: $status');
+    switch (status) {
+      case 'listening':
+        _updateSpeechState(_speechState.copyWith(status: SpeechStatus.listening));
+        break;
+      case 'notListening':
+        _updateSpeechState(_speechState.copyWith(status: SpeechStatus.stopped));
+        break;
+      case 'done':
+        _updateSpeechState(_speechState.copyWith(status: SpeechStatus.inactive));
+        break;
+    }
+  }
+
+  // Callback khi có lỗi speech
+  void _onSpeechError(dynamic error) {
+    debugPrint('Speech error: $error');
+    _updateSpeechState(_speechState.copyWith(
+      status: SpeechStatus.error,
+      errorMessage: error.toString(),
+    ));
+  }
+
+  // Bắt đầu nghe giọng nói
+  Future<void> startListening({
+    String localeId = 'vi_VN', // Mặc định tiếng Việt
+    bool partialResults = true,
+  }) async {
+    if (!_speechState.isAvailable) {
+      _updateSpeechState(_speechState.copyWith(
+        status: SpeechStatus.error,
+        errorMessage: 'Speech-to-Text không khả dụng',
+      ));
+      return;
+    }
+
+    if (_speechState.status == SpeechStatus.listening) {
+      return; // Đã đang nghe rồi
+    }
+
+    try {
+      _updateSpeechState(_speechState.copyWith(
+        status: SpeechStatus.listening,
+        recognizedText: '',
+        errorMessage: '',
+        confidenceLevel: 0.0,
+      ));
+
+      await _speech.listen(
+        onResult: _onSpeechResult,
+        localeId: localeId,
+        partialResults: partialResults,
+        cancelOnError: false,
+        listenMode: stt.ListenMode.confirmation,
+      );
+    } catch (e) {
+      _updateSpeechState(_speechState.copyWith(
+        status: SpeechStatus.error,
+        errorMessage: 'Lỗi khi bắt đầu nghe: $e',
+      ));
+    }
+  }
+
+  // Callback khi có kết quả speech - FIXED: Sử dụng đúng type
+  void _onSpeechResult(SpeechRecognitionResult result) {
+    final recognizedText = result.recognizedWords;
+    final confidence = result.confidence;
+    
+    _updateSpeechState(_speechState.copyWith(
+      recognizedText: recognizedText,
+      confidenceLevel: confidence,
+    ));
+
+    // Nếu là kết quả cuối cùng và có độ tin cậy cao, tự động tìm kiếm
+    if (result.finalResult && confidence > 0.5 && recognizedText.isNotEmpty) {
+      search(recognizedText);
+    }
+  }
+
+  // Dừng nghe giọng nói
+  Future<void> stopListening() async {
+    if (_speechState.status == SpeechStatus.listening) {
+      await _speech.stop();
+      _updateSpeechState(_speechState.copyWith(status: SpeechStatus.stopped));
+    }
+  }
+
+  // Hủy speech recognition
+  Future<void> cancelListening() async {
+    if (_speechState.status == SpeechStatus.listening) {
+      await _speech.cancel();
+      _updateSpeechState(_speechState.copyWith(
+        status: SpeechStatus.inactive,
+        recognizedText: '',
+      ));
+    }
+  }
+
+  // Toggle speech listening
+  Future<void> toggleListening({String localeId = 'vi_VN'}) async {
+    if (_speechState.status == SpeechStatus.listening) {
+      await stopListening();
+    } else {
+      await startListening(localeId: localeId);
+    }
+  }
+
+  // Tìm kiếm văn bản (từ keyboard hoặc speech)
   void search(String query) {
-    // Dùng debounce để tránh gọi API liên tục khi người dùng đang gõ
+    // Hủy debounce timer cũ nếu có
     if (_debounce?.isActive ?? false) _debounce!.cancel();
     
     _debounce = Timer(const Duration(milliseconds: 500), () async {
-      if (query.length < 3) {
+      if (query.trim().isEmpty) {
+        state = SearchInitial();
+        return;
+      }
+      
+      if (query.length < 2) {
         state = SearchInitial(); // Không tìm nếu query quá ngắn
         return;
       }
       
       state = SearchLoading();
       try {
-        final products = await _ref.read(productRepositoryProvider).searchProducts(query, limit: 10);
-        state = SearchLoaded(products);
+        final products = await _ref
+            .read(productRepositoryProvider)
+            .searchProducts(query.trim(), limit: 20);
+        state = SearchLoaded(products, query.trim());
       } catch (e) {
         state = SearchError(e.toString());
       }
     });
   }
 
+  // Tìm kiếm ngay lập tức (không debounce) - dùng cho speech result
+  Future<void> searchImmediate(String query) async {
+    if (query.trim().isEmpty) {
+      state = SearchInitial();
+      return;
+    }
+    
+    state = SearchLoading();
+    try {
+      final products = await _ref
+          .read(productRepositoryProvider)
+          .searchProducts(query.trim(), limit: 20);
+      state = SearchLoaded(products, query.trim());
+    } catch (e) {
+      state = SearchError(e.toString());
+    }
+  }
+
+  // Xóa kết quả tìm kiếm
   void clear() {
     state = SearchInitial();
+    // Reset speech state nhưng giữ isAvailable
+    _updateSpeechState(_speechState.copyWith(
+      status: SpeechStatus.inactive,
+      recognizedText: '',
+      errorMessage: '',
+      confidenceLevel: 0.0,
+    ));
+  }
+
+  // Lấy danh sách locale có sẵn
+  Future<List<stt.LocaleName>> getAvailableLocales() async {
+    if (_speechState.isAvailable) {
+      return await _speech.locales();
+    }
+    return [];
+  }
+
+  // Kiểm tra xem có đang nghe không
+  bool get isListening => _speechState.status == SpeechStatus.listening;
+
+  // Kiểm tra xem speech có khả dụng không
+  bool get isSpeechAvailable => _speechState.isAvailable;
+
+  // Lấy text hiện tại từ speech
+  String get currentSpeechText => _speechState.recognizedText;
+
+  // Lấy độ tin cậy của speech
+  double get speechConfidence => _speechState.confidenceLevel;
+
+  // Lấy thông báo lỗi speech
+  String get speechError => _speechState.errorMessage;
+
+  @override
+  void dispose() {
+    _debounce?.cancel();
+    _speechStateController.close();
+    super.dispose();
   }
 }
 
-// 3. Tạo Provider
+// 4. Tạo Provider
 final searchProvider = StateNotifierProvider.autoDispose<SearchNotifier, SearchState>((ref) {
   return SearchNotifier(ref);
 });
+
+// 5. Provider để truy cập speech state stream
+final speechStateStreamProvider = StreamProvider.autoDispose<SpeechState>((ref) {
+  final notifier = ref.watch(searchProvider.notifier);
+  return notifier.speechStateStream;
+});
+
+// 6. Provider để lấy các locale có sẵn
+final availableLocalesProvider = FutureProvider.autoDispose<List<stt.LocaleName>>((ref) async {
+  final notifier = ref.read(searchProvider.notifier);
+  return await notifier.getAvailableLocales();
+});
+
+// 7. Các extension methods hữu ích
+extension SearchNotifierExtension on SearchNotifier {
+  // Tìm kiếm bằng giọng nói với locale tùy chỉnh
+  Future<void> searchWithSpeech({
+    String localeId = 'vi_VN',
+    bool autoSearch = true,
+  }) async {
+    await startListening(localeId: localeId, partialResults: autoSearch);
+  }
+
+  // Lấy text suggestion dựa trên speech
+  String getSpeechSuggestion() {
+    if (_speechState.recognizedText.isNotEmpty && 
+        _speechState.confidenceLevel > 0.3) {
+      return _speechState.recognizedText;
+    }
+    return '';
+  }
+
+  // Kiểm tra xem có nên hiển thị speech button không
+  bool shouldShowSpeechButton() {
+    return _speechState.isAvailable && 
+           _speechState.status != SpeechStatus.error;
+  }
+}
 
 ================================================================================
 END OF FILE: lib/features/products/application/search_provider.dart
@@ -6318,12 +6619,30 @@ import 'package:go_router/go_router.dart';
 import 'package:smartshop_mobile/features/products/application/search_provider.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:smartshop_mobile/core/utils/formatter.dart';
-import 'package:smartshop_mobile/core/constants/api_constants.dart'; // Thêm import
+import 'package:smartshop_mobile/core/constants/api_constants.dart';
 
-class SearchScreen extends ConsumerWidget {
+class SearchScreen extends ConsumerStatefulWidget {
   const SearchScreen({super.key});
-  
-  // --- THÊM HÀM HELPER NÀY ---
+
+  @override
+  ConsumerState<SearchScreen> createState() => _SearchScreenState();
+}
+
+class _SearchScreenState extends ConsumerState<SearchScreen> {
+  late TextEditingController searchController;
+
+  @override
+  void initState() {
+    super.initState();
+    searchController = TextEditingController();
+  }
+
+  @override
+  void dispose() {
+    searchController.dispose();
+    super.dispose();
+  }
+
   String _getImageUrl(String? imagePath) {
     if (imagePath == null || imagePath.isEmpty) return '';
     if (imagePath.startsWith('http')) return imagePath;
@@ -6332,62 +6651,341 @@ class SearchScreen extends ConsumerWidget {
   }
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  Widget build(BuildContext context) {
     final searchState = ref.watch(searchProvider);
-    final searchController = TextEditingController();
+    final searchNotifier = ref.watch(searchProvider.notifier);
+    
+    // Watch speech state stream
+    final speechStateAsync = ref.watch(speechStateStreamProvider);
 
     return Scaffold(
       appBar: AppBar(
-        title: TextField(
-          controller: searchController,
-          autofocus: true,
-          decoration: InputDecoration(
-            hintText: 'Tìm kiếm sản phẩm...',
-            border: InputBorder.none,
-            suffixIcon: IconButton(
-              icon: const Icon(Icons.clear),
-              onPressed: () {
-                searchController.clear();
-                ref.read(searchProvider.notifier).clear();
-              },
+        title: Row(
+          children: [
+            Expanded(
+              child: TextField(
+                controller: searchController,
+                autofocus: true,
+                decoration: InputDecoration(
+                  hintText: 'Tìm kiếm sản phẩm...',
+                  border: InputBorder.none,
+                  suffixIcon: searchController.text.isNotEmpty
+                      ? IconButton(
+                          icon: const Icon(Icons.clear),
+                          onPressed: () {
+                            searchController.clear();
+                            searchNotifier.clear();
+                          },
+                        )
+                      : null,
+                ),
+                onChanged: (query) {
+                  searchNotifier.search(query);
+                },
+              ),
             ),
-          ),
-          onChanged: (query) {
-            ref.read(searchProvider.notifier).search(query);
-          },
+            // Speech button
+            speechStateAsync.when(
+              data: (speechState) {
+                return _buildSpeechButton(speechState, searchNotifier);
+              },
+              loading: () => const SizedBox(
+                width: 48,
+                height: 48,
+                child: Center(
+                  child: SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  ),
+                ),
+              ),
+              error: (_, __) => const SizedBox.shrink(),
+            ),
+          ],
         ),
       ),
-      body: switch (searchState) {
-        SearchInitial() => const Center(child: Text('Nhập từ khóa để tìm kiếm (ít nhất 3 ký tự).')),
-        SearchLoading() => const Center(child: CircularProgressIndicator()),
-        SearchLoaded(products: final products) => products.isEmpty
-            ? const Center(child: Text('Không tìm thấy sản phẩm nào.'))
-            : ListView.builder(
-                itemCount: products.length,
-                itemBuilder: (context, index) {
-                  final product = products[index];
-                  // --- SỬA LẠI CÁCH LẤY URL ---
-                  final imageUrl = _getImageUrl(product.images.isNotEmpty ? product.images[0] : null);
+      body: Column(
+        children: [
+          // Speech status indicator
+          speechStateAsync.when(
+            data: (speechState) => _buildSpeechStatusBar(speechState),
+            loading: () => const SizedBox.shrink(),
+            error: (_, __) => const SizedBox.shrink(),
+          ),
+          // Search results
+          Expanded(
+            child: _buildSearchResults(searchState),
+          ),
+        ],
+      ),
+    );
+  }
 
-                  return ListTile(
-                    leading: CachedNetworkImage(
+  Widget _buildSpeechButton(SpeechState speechState, SearchNotifier notifier) {
+    if (!speechState.isAvailable) {
+      return const SizedBox.shrink();
+    }
+
+    final isListening = speechState.status == SpeechStatus.listening;
+    final hasError = speechState.status == SpeechStatus.error;
+
+    return Container(
+      margin: const EdgeInsets.only(left: 8),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(24),
+          onTap: hasError ? null : () async {
+            if (isListening) {
+              await notifier.stopListening();
+            } else {
+              await notifier.startListening();
+            }
+          },
+          child: Container(
+            width: 48,
+            height: 48,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: isListening 
+                  ? Colors.red.withOpacity(0.1)
+                  : hasError 
+                      ? Colors.grey.withOpacity(0.1)
+                      : Colors.blue.withOpacity(0.1),
+              border: Border.all(
+                color: isListening 
+                    ? Colors.red
+                    : hasError 
+                        ? Colors.grey
+                        : Colors.blue,
+                width: 2,
+              ),
+            ),
+            child: Icon(
+              isListening ? Icons.mic : Icons.mic_none,
+              color: isListening 
+                  ? Colors.red
+                  : hasError 
+                      ? Colors.grey
+                      : Colors.blue,
+              size: 24,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSpeechStatusBar(SpeechState speechState) {
+    if (speechState.status == SpeechStatus.inactive || 
+        !speechState.isAvailable) {
+      return const SizedBox.shrink();
+    }
+
+    String statusText = '';
+    Color backgroundColor = Colors.transparent;
+    Color textColor = Colors.black87;
+
+    switch (speechState.status) {
+      case SpeechStatus.listening:
+        statusText = 'Đang nghe... Hãy nói gì đó';
+        backgroundColor = Colors.blue.withOpacity(0.1);
+        textColor = Colors.blue;
+        break;
+      case SpeechStatus.stopped:
+        statusText = 'Đã dừng nghe';
+        backgroundColor = Colors.orange.withOpacity(0.1);
+        textColor = Colors.orange;
+        break;
+      case SpeechStatus.error:
+        statusText = 'Lỗi: ${speechState.errorMessage}';
+        backgroundColor = Colors.red.withOpacity(0.1);
+        textColor = Colors.red;
+        break;
+      case SpeechStatus.inactive:
+        return const SizedBox.shrink();
+    }
+
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 300),
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      decoration: BoxDecoration(
+        color: backgroundColor,
+        border: Border(
+          bottom: BorderSide(
+            color: textColor.withOpacity(0.2),
+            width: 1,
+          ),
+        ),
+      ),
+      child: Row(
+        children: [
+          Icon(
+            speechState.status == SpeechStatus.listening 
+                ? Icons.mic 
+                : speechState.status == SpeechStatus.error
+                    ? Icons.error_outline
+                    : Icons.mic_off,
+            color: textColor,
+            size: 16,
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  statusText,
+                  style: TextStyle(
+                    color: textColor,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+                if (speechState.recognizedText.isNotEmpty) ...[
+                  const SizedBox(height: 4),
+                  Text(
+                    '"${speechState.recognizedText}"',
+                    style: TextStyle(
+                      color: textColor.withOpacity(0.8),
+                      fontSize: 11,
+                      fontStyle: FontStyle.italic,
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+          if (speechState.status == SpeechStatus.listening && speechState.confidenceLevel > 0)
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+              decoration: BoxDecoration(
+                color: textColor.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Text(
+                '${(speechState.confidenceLevel * 100).toInt()}%',
+                style: TextStyle(
+                  color: textColor,
+                  fontSize: 10,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSearchResults(SearchState searchState) {
+    return switch (searchState) {
+      SearchInitial() => const Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.search, size: 64, color: Colors.grey),
+            SizedBox(height: 16),
+            Text(
+              'Nhập từ khóa để tìm kiếm\n(ít nhất 2 ký tự)',
+              textAlign: TextAlign.center,
+              style: TextStyle(color: Colors.grey),
+            ),
+            SizedBox(height: 8),
+            Text(
+              'Hoặc nhấn nút mic để tìm kiếm bằng giọng nói',
+              textAlign: TextAlign.center,
+              style: TextStyle(color: Colors.blue, fontSize: 12),
+            ),
+          ],
+        ),
+      ),
+      SearchLoading() => const Center(child: CircularProgressIndicator()),
+      SearchLoaded(products: final products, query: final query) => products.isEmpty
+          ? Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Icon(Icons.search_off, size: 64, color: Colors.grey),
+                  const SizedBox(height: 16),
+                  Text(
+                    'Không tìm thấy sản phẩm nào\ncho từ khóa "$query"',
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(color: Colors.grey),
+                  ),
+                ],
+              ),
+            )
+          : ListView.builder(
+              itemCount: products.length,
+              itemBuilder: (context, index) {
+                final product = products[index];
+                final imageUrl = _getImageUrl(product.images.isNotEmpty ? product.images[0] : null);
+
+                return ListTile(
+                  leading: ClipRRect(
+                    borderRadius: BorderRadius.circular(8),
+                    child: CachedNetworkImage(
                       imageUrl: imageUrl,
                       width: 50,
                       height: 50,
                       fit: BoxFit.cover,
-                      errorWidget: (context, url, error) => const Icon(Icons.image_not_supported),
-                      placeholder: (context, url) => const Center(child: CircularProgressIndicator(strokeWidth: 2)),
+                      errorWidget: (context, url, error) => Container(
+                        width: 50,
+                        height: 50,
+                        decoration: BoxDecoration(
+                          color: Colors.grey.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: const Icon(Icons.image_not_supported, color: Colors.grey),
+                      ),
+                      placeholder: (context, url) => Container(
+                        width: 50,
+                        height: 50,
+                        decoration: BoxDecoration(
+                          color: Colors.grey.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: const Center(
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        ),
+                      ),
                     ),
-                    title: Text(product.name),
-                    subtitle: Text(AppFormatters.currency.format(product.price)),
-                    onTap: () => context.push('/product/${product.id}'),
-                  );
-                },
-              ),
-        SearchError(message: final message) => Center(child: Text('Lỗi: $message')),
-        _ => const Center(child: Text('Trạng thái không xác định.')),
-      },
-    );
+                  ),
+                  title: Text(
+                    product.name,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  subtitle: Text(
+                    AppFormatters.currency.format(product.price),
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w600,
+                      color: Colors.green,
+                    ),
+                  ),
+                  onTap: () => context.push('/product/${product.id}'),
+                );
+              },
+            ),
+      SearchError(message: final message) => Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Icon(Icons.error_outline, size: 64, color: Colors.red),
+            const SizedBox(height: 16),
+            Text(
+              'Lỗi: $message',
+              textAlign: TextAlign.center,
+              style: const TextStyle(color: Colors.red),
+            ),
+          ],
+        ),
+      ),
+      _ => const Center(child: Text('Trạng thái không xác định.')),
+    };
   }
 }
 
@@ -7593,8 +8191,14 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
                   // Avatar
                   CircleAvatar(
                     radius: 50,
-                    backgroundImage: NetworkImage(user?.avatarUrl ?? 'https://i.pravatar.cc/150'),
+                    backgroundImage: user?.avatarUrl != null
+                        ? NetworkImage(user!.avatarUrl!)
+                        : null,
+                    child: user?.avatarUrl == null
+                        ? Icon(Icons.person, size: 60, color: Colors.grey.shade400)
+                        : null,
                   ),
+
                   // Nút chỉnh sửa
                   Positioned(
                     bottom: 0,
@@ -7995,7 +8599,14 @@ class ProfileScreen extends ConsumerWidget {
               children: [
                 CircleAvatar(
                   radius: 40,
-                  backgroundImage: NetworkImage(user.avatarUrl),
+                  // Kiểm tra xem avatarUrl có null không
+                  backgroundImage: user.avatarUrl != null
+                      ? NetworkImage(user.avatarUrl!)
+                      : null,
+                  // Nếu không có ảnh, hiển thị icon mặc định
+                  child: user.avatarUrl == null
+                      ? const Icon(Icons.person, size: 50, color: Colors.white70)
+                      : null,
                 ),
                 const SizedBox(width: 20),
                 Expanded(
