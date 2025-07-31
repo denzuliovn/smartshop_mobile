@@ -13,6 +13,8 @@
 import 'package:connectivity_plus/src/connectivity_plus_web.dart';
 import 'package:flutter_secure_storage_web/flutter_secure_storage_web.dart';
 import 'package:image_picker_for_web/image_picker_for_web.dart';
+import 'package:share_plus/src/share_plus_web.dart';
+import 'package:url_launcher_web/url_launcher_web.dart';
 import 'package:flutter_web_plugins/flutter_web_plugins.dart';
 
 void registerPlugins([final Registrar? pluginRegistrar]) {
@@ -20,6 +22,8 @@ void registerPlugins([final Registrar? pluginRegistrar]) {
   ConnectivityPlusWebPlugin.registerWith(registrar);
   FlutterSecureStorageWeb.registerWith(registrar);
   ImagePickerPlugin.registerWith(registrar);
+  SharePlusWebPlugin.registerWith(registrar);
+  UrlLauncherPlugin.registerWith(registrar);
   registrar.registerMessageHandler();
 }
 
@@ -46,6 +50,8 @@ import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:file_selector_linux/file_selector_linux.dart';
 import 'package:image_picker_linux/image_picker_linux.dart';
 import 'package:path_provider_linux/path_provider_linux.dart';
+import 'package:share_plus/share_plus.dart';
+import 'package:url_launcher_linux/url_launcher_linux.dart';
 import 'package:file_selector_macos/file_selector_macos.dart';
 import 'package:image_picker_macos/image_picker_macos.dart';
 import 'package:path_provider_foundation/path_provider_foundation.dart';
@@ -54,6 +60,8 @@ import 'package:file_selector_windows/file_selector_windows.dart';
 import 'package:flutter_secure_storage_windows/flutter_secure_storage_windows.dart';
 import 'package:image_picker_windows/image_picker_windows.dart';
 import 'package:path_provider_windows/path_provider_windows.dart';
+import 'package:share_plus/share_plus.dart';
+import 'package:url_launcher_windows/url_launcher_windows.dart';
 
 @pragma('vm:entry-point')
 class _PluginRegistrant {
@@ -153,6 +161,24 @@ class _PluginRegistrant {
         );
       }
 
+      try {
+        SharePlusLinuxPlugin.registerWith();
+      } catch (err) {
+        print(
+          '`share_plus` threw an error: $err. '
+          'The app may not function as expected until you remove this plugin from pubspec.yaml'
+        );
+      }
+
+      try {
+        UrlLauncherLinux.registerWith();
+      } catch (err) {
+        print(
+          '`url_launcher_linux` threw an error: $err. '
+          'The app may not function as expected until you remove this plugin from pubspec.yaml'
+        );
+      }
+
     } else if (Platform.isMacOS) {
       try {
         FileSelectorMacOS.registerWith();
@@ -223,6 +249,24 @@ class _PluginRegistrant {
       } catch (err) {
         print(
           '`path_provider_windows` threw an error: $err. '
+          'The app may not function as expected until you remove this plugin from pubspec.yaml'
+        );
+      }
+
+      try {
+        SharePlusWindowsPlugin.registerWith();
+      } catch (err) {
+        print(
+          '`share_plus` threw an error: $err. '
+          'The app may not function as expected until you remove this plugin from pubspec.yaml'
+        );
+      }
+
+      try {
+        UrlLauncherWindows.registerWith();
+      } catch (err) {
+        print(
+          '`url_launcher_windows` threw an error: $err. '
           'The app may not function as expected until you remove this plugin from pubspec.yaml'
         );
       }
@@ -314,6 +358,10 @@ import 'package:smartshop_mobile/features/admin/presentation/screens/admin_main_
 import 'package:smartshop_mobile/features/admin/presentation/screens/admin_orders_screen.dart';
 import 'package:smartshop_mobile/features/admin/presentation/screens/admin_products_screen.dart';
 import 'package:smartshop_mobile/features/admin/presentation/screens/admin_order_detail_screen.dart';
+import 'package:smartshop_mobile/features/admin/presentation/screens/admin_create_product_screen.dart';
+import 'package:smartshop_mobile/features/admin/presentation/screens/admin_edit_product_screen.dart';
+import 'package:smartshop_mobile/features/products/presentation/screens/write_review_screen.dart';
+import 'package:smartshop_mobile/features/profile/presentation/screens/wishlist_screen.dart';
 import 'dart:async';
 
 class GoRouterRefreshStream extends ChangeNotifier {
@@ -366,8 +414,20 @@ final routerProvider = Provider<GoRouter>((ref) {
               return AdminOrderDetailScreen(orderNumber: orderNumber);
             },
           ),
+          GoRoute(
+            path: '/admin/products/create',
+            builder: (context, state) => const AdminCreateProductScreen(),
+          ),
+          GoRoute(
+            path: '/admin/products/edit/:productId',
+            builder: (context, state) {
+              final productId = state.pathParameters['productId']!;
+              return AdminEditProductScreen(productId: productId);
+            },
+          ),
         ]
       ),
+
 
       
       // Các route không có BottomNavBar sẽ nằm ngoài ShellRoute
@@ -378,16 +438,26 @@ final routerProvider = Provider<GoRouter>((ref) {
           return ProductDetailScreen(productId: productId);
         },
       ),
-      GoRoute(path: '/products',
+      GoRoute(
+        path: '/products',
         builder: (context, state) {
+          // Lấy tất cả các tham số từ URL
           final isFeatured = state.uri.queryParameters['featured'] == 'true';
-          return ProductsScreen(isFeaturedOnly: isFeatured);
+          // final categoryId = state.uri.queryParameters['categoryId'];
+          // final brandId = state.uri.queryParameters['brandId'];
+          
+          return ProductsScreen(
+            isFeaturedOnly: isFeatured,
+            // categoryId: categoryId,
+            // brandId: brandId,
+          );
         },
       ),
+
       GoRoute(
         path: '/filter',
         pageBuilder: (context, state) {
-          // Lấy toàn bộ object filter được truyền qua
+          // --- SỬA LẠI CÁCH NHẬN `extra` ---
           final initialFilter = state.extra as ProductListFilter? ?? const ProductListFilter();
           return MaterialPage(
             child: FilterScreen(initialFilter: initialFilter),
@@ -395,6 +465,7 @@ final routerProvider = Provider<GoRouter>((ref) {
           );
         },
       ),
+
       GoRoute(path: '/search', builder: (context, state) => const SearchScreen()),
       GoRoute(path: '/login', builder: (context, state) => const LoginScreen()),
       GoRoute(path: '/register', builder: (context, state) => const RegisterScreen()),
@@ -431,6 +502,16 @@ final routerProvider = Provider<GoRouter>((ref) {
         path: '/settings',
         builder: (context, state) => const SettingsScreen(),
       ),
+      GoRoute(
+        path: '/product/:id/review',
+        builder: (context, state) {
+          final productId = state.pathParameters['id']!;
+          return WriteReviewScreen(productId: productId);
+        },
+      ),
+      GoRoute(path: '/wishlist', builder: (context, state) => const WishlistScreen()),
+
+
 
     ],
     redirect: (context, state) {
@@ -557,7 +638,8 @@ class ApiConstants {
   //   (Mở cmd/terminal, gõ `ipconfig` (Windows) hoặc `ifconfig` (macOS/Linux))
   // ip wifi trường UMT: 10.12.1.130
   // ip wifi nhà: 192.168.1.3
-  static const String ipAddress = "192.168.1.4"; // <<-- THAY IP CỦA BẠN VÀO ĐÂY 
+
+  static const String ipAddress = "10.12.2.217"; // <<-- THAY IP CỦA BẠN VÀO ĐÂY 
   static const String baseUrl = "http://$ipAddress:4000";
   static const String graphqlUrl = "$baseUrl/"; 
 }
@@ -679,68 +761,22 @@ final mockCartItems = [
 ];
 
 
-// --- Orders ---
-// final mockOrders = [
-//   Order(
-//     id: 'order1',
-//     orderNumber: 'SS20240720001',
-//     orderDate: DateTime.now().subtract(const Duration(days: 3)),
-//     status: 'delivered',
-//     items: [
-//       OrderItem(
-//         id: 'item1',
-//         product: mockProducts[0],
-//         productName: mockProducts[0].name,   // Thêm vào
-//         productSku: 'IPH15PRO001',           // Thêm vào
-//         quantity: 1,
-//         priceAtOrder: 28990000,
-//       ),
-//     ],
-//     totalAmount: 28990000,
-//   ),
-//   Order(
-//     id: 'order2',
-//     orderNumber: 'SS20240718005',
-//     orderDate: DateTime.now().subtract(const Duration(days: 5)),
-//     status: 'shipping',
-//     items: [
-//       OrderItem(
-//         id: 'item2',
-//         product: mockProducts[3],
-//         productName: mockProducts[3].name,   // Thêm vào
-//         productSku: 'SONYWH1000XM5',         // Thêm vào
-//         quantity: 1,
-//         priceAtOrder: 7990000,
-//       ),
-//       OrderItem(
-//         id: 'item3',
-//         product: mockProducts[1],
-//         productName: mockProducts[1].name,   // Thêm vào
-//         productSku: 'SAM24ULTRA001',         // Thêm vào
-//         quantity: 1,
-//         priceAtOrder: 30490000,
-//       ),
-//     ],
-//     totalAmount: 38480000,
-//   ),
-//   Order(
-//     id: 'order3',
-//     orderNumber: 'SS20240715002',
-//     orderDate: DateTime.now().subtract(const Duration(days: 8)),
-//     status: 'cancelled',
-//     items: [
-//       OrderItem(
-//         id: 'item4',
-//         product: mockProducts[2],
-//         productName: mockProducts[2].name,  // Thêm vào
-//         productSku: 'MBP14M3001',          // Thêm vào
-//         quantity: 1,
-//         priceAtOrder: 52490000,
-//       ),
-//     ],
-//     totalAmount: 52490000,
-//   ),
-// ];
+final mockReviews = [
+  Review(
+    id: 'review1',
+    user: mockUser,
+    rating: 5,
+    comment: 'Sản phẩm tuyệt vời! Màn hình rất đẹp và hiệu năng mượt mà. Giao hàng nhanh chóng.',
+    createdAt: DateTime.now().subtract(const Duration(days: 2)),
+  ),
+  Review(
+    id: 'review2',
+    user: User(id: 'user2', username: 'thanh', email: 'thanh@email.com', firstName: 'Minh', lastName: 'Thanh', role: 'customer', avatarUrl: 'https://i.pravatar.cc/150?u=user2'),
+    rating: 4,
+    comment: 'Thiết kế sang trọng, pin dùng ổn. Camera chụp ảnh rất nét. Sẽ tiếp tục ủng hộ shop.',
+    createdAt: DateTime.now().subtract(const Duration(days: 5)),
+  ),
+];
 
 
 ================================================================================
@@ -1387,6 +1423,30 @@ class AdminGraphQL {
     ${ProductGraphQL.productFragment}
   ''';
 
+  static const String createProduct = '''
+    mutation CreateProduct(\$input: ProductInput!) {
+      createProduct(input: \$input) {
+        ...ProductData
+      }
+    }
+    ${ProductGraphQL.productFragment}
+  ''';
+  
+  static const String updateProduct = '''
+    mutation UpdateProduct(\$id: ID!, \$input: ProductInput!) {
+      updateProduct(id: \$id, input: \$input) {
+        ...ProductData
+      }
+    }
+    ${ProductGraphQL.productFragment}
+  ''';
+
+  static const String deleteProduct = r'''
+    mutation DeleteProduct($id: ID!) {
+      deleteProduct(id: $id)
+    }
+  ''';
+
 }
 
 ================================================================================
@@ -1488,6 +1548,150 @@ class AdminRepository {
     return list.map((json) => Product.fromJson(json)).toList();
   }
 
+  Future<Product> createProduct(Map<String, dynamic> productData) async {
+    final options = MutationOptions(
+      document: gql(AdminGraphQL.createProduct),
+      variables: {'input': productData},
+    );
+    final result = await client.mutate(options);
+    if (result.hasException) throw Exception(result.exception.toString());
+    
+    return Product.fromJson(result.data!['createProduct']);
+  }
+  
+  Future<Product> updateProduct(String id, Map<String, dynamic> productData) async {
+    final options = MutationOptions(
+      document: gql(AdminGraphQL.updateProduct),
+      variables: {'id': id, 'input': productData},
+    );
+    final result = await client.mutate(options);
+    if (result.hasException) throw Exception(result.exception.toString());
+
+    return Product.fromJson(result.data!['updateProduct']);
+  }
+
+  Future<void> deleteProduct(String id) async {
+    final options = MutationOptions(
+      document: gql(AdminGraphQL.deleteProduct),
+      variables: {'id': id},
+    );
+    final result = await client.mutate(options);
+    if (result.hasException) throw Exception(result.exception.toString());
+  }
+
+}
+
+================================================================================
+// FILE PATH: lib\features\admin\data\upload_graphql.dart
+================================================================================
+
+class UploadGraphQL {
+  static const String uploadProductImages = r'''
+    mutation UploadProductImages($productId: ID!, $files: [Upload!]!) {
+      uploadProductImages(productId: $productId, files: $files) {
+        success
+        message
+        # Không cần lấy urls vì backend không trả về
+      }
+    }
+  ''';
+}
+
+================================================================================
+// FILE PATH: lib\features\admin\data\upload_repository.dart
+================================================================================
+
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:graphql_flutter/graphql_flutter.dart';
+import 'package:http/http.dart' show MultipartFile;
+import 'package:http_parser/http_parser.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:smartshop_mobile/core/api/graphql_client.dart';
+import 'package:smartshop_mobile/features/admin/data/upload_graphql.dart';
+
+final uploadRepositoryProvider = Provider((ref) => UploadRepository(client: ref.watch(graphqlClientProvider)));
+
+class UploadRepository {
+  final GraphQLClient client;
+  UploadRepository({required this.client});
+
+  Future<void> uploadProductImages(String productId, List<XFile> files) async {
+    if (files.isEmpty) return;
+
+    List<MultipartFile> multipartFiles = [];
+    for (var file in files) {
+      multipartFiles.add(await MultipartFile.fromPath(
+        'files', // Tên field này không quan trọng, miễn là có
+        file.path,
+        filename: file.name,
+      ));
+    }
+
+    final options = MutationOptions(
+      document: gql(UploadGraphQL.uploadProductImages),
+      variables: {
+        'productId': productId,
+        'files': multipartFiles,
+      },
+    );
+
+    final result = await client.mutate(options);
+
+    if (result.hasException) {
+      throw Exception(result.exception.toString());
+    }
+
+    final response = result.data?['uploadProductImages'];
+    if (response == null || !response['success']) {
+      throw Exception(response['message'] ?? 'Upload ảnh thất bại');
+    }
+    // Không cần return gì cả
+  }
+}
+
+================================================================================
+// FILE PATH: lib\features\admin\presentation\screens\admin_create_product_screen.dart
+================================================================================
+
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
+import 'package:smartshop_mobile/features/admin/application/admin_providers.dart';
+import 'package:smartshop_mobile/features/admin/data/admin_repository.dart';
+import 'package:smartshop_mobile/features/admin/presentation/widgets/product_form.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:smartshop_mobile/features/admin/data/upload_repository.dart'; 
+
+class AdminCreateProductScreen extends ConsumerWidget {
+  const AdminCreateProductScreen({super.key});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    return Scaffold(
+      appBar: AppBar(title: const Text('Tạo sản phẩm mới')),
+      body: ProductForm(
+        onSave: (data, imageFiles) async {
+    final messenger = ScaffoldMessenger.of(context);
+    try {
+      final newProduct = await ref.read(adminRepositoryProvider).createProduct(data);
+      
+      if (imageFiles.isNotEmpty) {
+        // Chỉ cần gọi upload và không cần đợi kết quả
+        await ref.read(uploadRepositoryProvider).uploadProductImages(newProduct.id, imageFiles);
+      }
+      
+      ref.refresh(adminProductsProvider); // Làm mới danh sách sản phẩm
+      context.pop();
+      messenger.showSnackBar(const SnackBar(content: Text('Tạo sản phẩm thành công!'), backgroundColor: Colors.green));
+
+        } catch (e) {
+          messenger.showSnackBar(SnackBar(content: Text('Lỗi: $e'), backgroundColor: Colors.red));
+        }
+      },
+
+      ),
+    );
+  }
 }
 
 ================================================================================
@@ -1560,7 +1764,7 @@ class AdminDashboardScreen extends ConsumerWidget {
   }
 
   // --- WIDGET ĐÃ ĐƯỢC THIẾT KẾ LẠI ---
-  Widget _buildStatCard(BuildContext context, String title, String value, IconData icon, {Color color = Colors.blue}) {
+  Widget _buildStatCard(BuildContext context, String title, String value, IconData icon, {Color color = const Color.fromARGB(255, 101, 15, 193)}) {
     return Card(
       elevation: 0,
       shape: RoundedRectangleBorder(
@@ -1602,6 +1806,64 @@ class AdminDashboardScreen extends ConsumerWidget {
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+================================================================================
+// FILE PATH: lib\features\admin\presentation\screens\admin_edit_product_screen.dart
+================================================================================
+
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:smartshop_mobile/features/admin/application/admin_providers.dart';
+import 'package:smartshop_mobile/features/admin/data/admin_repository.dart';
+import 'package:smartshop_mobile/features/admin/presentation/widgets/product_form.dart';
+import 'package:smartshop_mobile/features/products/application/product_providers.dart';
+import 'package:smartshop_mobile/features/admin/data/upload_repository.dart';
+
+class AdminEditProductScreen extends ConsumerWidget {
+  final String productId;
+  const AdminEditProductScreen({super.key, required this.productId});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final productAsync = ref.watch(productDetailProvider(productId));
+
+    return Scaffold(
+      appBar: AppBar(title: const Text('Chỉnh sửa sản phẩm')),
+      body: productAsync.when(
+        data: (product) => ProductForm(
+          product: product,
+          onSave: (data, imageFiles) async {
+            final messenger = ScaffoldMessenger.of(context);
+            try {
+              // Bước 1: Cập nhật thông tin text và danh sách ảnh CŨ
+              await ref.read(adminRepositoryProvider).updateProduct(productId, data);
+
+              // Bước 2: Upload ảnh MỚI nếu có
+              if (imageFiles.isNotEmpty) {
+                 await ref.read(uploadRepositoryProvider).uploadProductImages(productId, imageFiles);
+                 messenger.showSnackBar(
+                   SnackBar(content: Text('Đã upload ${imageFiles.length} ảnh mới.'))
+                 );
+              }
+
+              // Bước 3: Làm mới danh sách và quay lại
+              ref.refresh(adminProductsProvider); // Làm mới danh sách chung
+              ref.refresh(productDetailProvider(productId)); // Làm mới chi tiết sản phẩm này
+              context.pop();
+              messenger.showSnackBar(const SnackBar(content: Text('Cập nhật thành công!'), backgroundColor: Colors.green));
+            } catch (e) {
+               messenger.showSnackBar(SnackBar(content: Text('Lỗi: $e'), backgroundColor: Colors.red));
+            }
+          },
+        ),
+        loading: () => const Center(child: CircularProgressIndicator()),
+        error: (e,s) => Center(child: Text('Lỗi tải sản phẩm: $e')),
       ),
     );
   }
@@ -1754,12 +2016,28 @@ import 'package:smartshop_mobile/core/mock_data/models.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:smartshop_mobile/features/admin/presentation/widgets/update_status_dialog.dart';
 import 'package:smartshop_mobile/features/admin/data/admin_repository.dart';
-
+import 'package:smartshop_mobile/core/constants/api_constants.dart';
 
 class AdminOrderDetailScreen extends ConsumerWidget {
   final String orderNumber;
   const AdminOrderDetailScreen({super.key, required this.orderNumber});
-
+  
+  // Hàm helper để tạo URL hình ảnh an toàn
+  String getImageUrl(String? imagePath) {
+    if (imagePath == null || imagePath.isEmpty) {
+      return ''; // Trả về chuỗi rỗng để errorWidget xử lý
+    }
+    // Nếu đã là URL đầy đủ (ví dụ: từ Firebase)
+    if (imagePath.startsWith('http')) {
+      return imagePath;
+    }
+    // Nếu là đường dẫn tương đối (bắt đầu bằng /)
+    if (imagePath.startsWith('/')) {
+      return "${ApiConstants.baseUrl}$imagePath";
+    }
+    // Mặc định, nếu chỉ là tên file
+    return "${ApiConstants.baseUrl}/img/$imagePath";
+  }
 
   void _showUpdateStatusDialog(BuildContext context, WidgetRef ref, Order order) async {
     final result = await showDialog<Map<String, String>>(
@@ -1773,23 +2051,27 @@ class AdminOrderDetailScreen extends ConsumerWidget {
     if (result != null) {
       final messenger = ScaffoldMessenger.of(context);
       try {
-        // Cập nhật trạng thái đơn hàng nếu có thay đổi
+        bool updated = false;
         if (result['orderStatus'] != order.status) {
           await ref.read(adminRepositoryProvider).updateOrderStatus(
             orderNumber: order.orderNumber,
             status: result['orderStatus']!,
           );
+          updated = true;
         }
-        // Cập nhật trạng thái thanh toán nếu có thay đổi
         if (result['paymentStatus'] != order.paymentStatus) {
            await ref.read(adminRepositoryProvider).updatePaymentStatus(
             orderNumber: order.orderNumber,
             paymentStatus: result['paymentStatus']!,
           );
+           updated = true;
         }
-        messenger.showSnackBar(const SnackBar(content: Text('Cập nhật thành công!'), backgroundColor: Colors.green));
-        ref.refresh(adminOrderDetailProvider(order.orderNumber)); // Làm mới dữ liệu
-        ref.refresh(allOrdersProvider); // Làm mới danh sách
+
+        if (updated) {
+          messenger.showSnackBar(const SnackBar(content: Text('Cập nhật thành công!'), backgroundColor: Colors.green));
+          ref.refresh(adminOrderDetailProvider(order.orderNumber));
+          ref.refresh(allOrdersProvider);
+        }
       } catch (e) {
         messenger.showSnackBar(SnackBar(content: Text('Lỗi: ${e.toString()}'), backgroundColor: Colors.red));
       }
@@ -1811,7 +2093,7 @@ class AdminOrderDetailScreen extends ConsumerWidget {
   }
 
   Widget _buildOrderDetail(BuildContext context, WidgetRef ref, Order order) {
-    final customerName = order.customerInfo?['fullName'] ?? '${order.user?.firstName} ${order.user?.lastName}';
+    final customerName = order.customerInfo?['fullName'] ?? '${order.user?.firstName ?? ''} ${order.user?.lastName ?? ''}'.trim();
     final customerPhone = order.customerInfo?['phone'] ?? 'N/A';
     final customerAddress = order.customerInfo?['address'] ?? 'N/A';
 
@@ -1856,9 +2138,10 @@ class AdminOrderDetailScreen extends ConsumerWidget {
               ListTile(
                 contentPadding: EdgeInsets.zero,
                 leading: CachedNetworkImage(
-                  imageUrl: "http://192.168.1.3:4000${item.product?.images.isNotEmpty ?? false ? item.product!.images[0] : ''}",
+                  imageUrl: getImageUrl(item.product?.images.isNotEmpty ?? false ? item.product!.images[0] : null),
                   width: 50, height: 50, fit: BoxFit.cover,
-                  errorWidget: (c, u, e) => const Icon(Icons.image_not_supported),
+                  errorWidget: (c, u, e) => Container(width: 50, height: 50, color: Colors.grey[200], child: const Icon(Icons.image_not_supported, color: Colors.grey)),
+                  placeholder: (c, u) => Container(width: 50, height: 50, color: Colors.grey[200]),
                 ),
                 title: Text(item.productName, style: const TextStyle(fontWeight: FontWeight.w500)),
                 subtitle: Text('SL: ${item.quantity}'),
@@ -1873,6 +2156,7 @@ class AdminOrderDetailScreen extends ConsumerWidget {
           icon: const Icon(Icons.sync),
           label: const Text('Cập nhật trạng thái'),
           onPressed: () => _showUpdateStatusDialog(context, ref, order),
+          style: ElevatedButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 12)),
         ),
       ],
     );
@@ -1904,10 +2188,18 @@ class AdminOrderDetailScreen extends ConsumerWidget {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 4.0),
       child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
           Text(label, style: const TextStyle(color: Colors.grey)),
-          Text(value, style: TextStyle(fontWeight: isBold ? FontWeight.bold : FontWeight.normal)),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Text(
+              value,
+              textAlign: TextAlign.right,
+              style: TextStyle(fontWeight: isBold ? FontWeight.bold : FontWeight.normal)
+            ),
+          ),
         ],
       ),
     );
@@ -1920,11 +2212,13 @@ class AdminOrderDetailScreen extends ConsumerWidget {
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:smartshop_mobile/core/mock_data/models.dart';
 import 'package:smartshop_mobile/features/admin/application/admin_providers.dart';
 import 'package:smartshop_mobile/core/utils/formatter.dart';
 import 'package:cached_network_image/cached_network_image.dart';
-import 'package:smartshop_mobile/core/constants/api_constants.dart'; 
+import 'package:smartshop_mobile/core/constants/api_constants.dart';
+import 'package:smartshop_mobile/features/admin/data/admin_repository.dart';
 
 class AdminProductsScreen extends ConsumerWidget {
   const AdminProductsScreen({super.key});
@@ -1945,7 +2239,7 @@ class AdminProductsScreen extends ConsumerWidget {
               padding: const EdgeInsets.all(8.0),
               itemCount: products.length,
               itemBuilder: (context, index) {
-                return _buildProductListItem(context, products[index]);
+                return _buildProductListItem(context, ref, products[index]);
               },
             );
           },
@@ -1954,18 +2248,22 @@ class AdminProductsScreen extends ConsumerWidget {
         ),
       ),
       floatingActionButton: FloatingActionButton(
-        onPressed: () { /* TODO: Navigate to create product screen */ },
+        onPressed: () => context.push('/admin/products/create'),
         child: const Icon(Icons.add),
         tooltip: 'Thêm sản phẩm',
       ),
     );
   }
 
-  Widget _buildProductListItem(BuildContext context, Product product) {
-    // --- SỬ DỤNG ApiConstants.baseUrl ĐỂ TẠO URL AN TOÀN ---
-    final imageUrl = product.images.isNotEmpty
-        ? "${ApiConstants.baseUrl}${product.images[0]}"
-        : ''; // Để trống nếu không có ảnh
+  Widget _buildProductListItem(BuildContext context, WidgetRef ref, Product product) {
+    String getImageUrl(String? imagePath) {
+      if (imagePath == null || imagePath.isEmpty) return '';
+      if (imagePath.startsWith('http')) return imagePath;
+      if (imagePath.startsWith('/')) return "${ApiConstants.baseUrl}$imagePath";
+      return "${ApiConstants.baseUrl}/img/$imagePath";
+    }
+
+    final imageUrl = product.images.isNotEmpty ? getImageUrl(product.images[0]) : '';
 
     return Card(
       margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
@@ -1973,33 +2271,16 @@ class AdminProductsScreen extends ConsumerWidget {
         padding: const EdgeInsets.all(12.0),
         child: Row(
           children: [
-            // Image
             ClipRRect(
               borderRadius: BorderRadius.circular(8),
               child: CachedNetworkImage(
                 imageUrl: imageUrl,
-                width: 80,
-                height: 80,
-                fit: BoxFit.cover,
-                // Widget hiển thị khi có lỗi hoặc URL rỗng
-                errorWidget: (context, url, error) => Container(
-                  width: 80,
-                  height: 80,
-                  color: Colors.grey[200],
-                  child: const Icon(Icons.image_not_supported, size: 40, color: Colors.grey),
-                ),
-                // Widget hiển thị khi đang tải
-                placeholder: (context, url) => Container(
-                  width: 80,
-                  height: 80,
-                  color: Colors.grey[200],
-                  child: const Center(child: CircularProgressIndicator(strokeWidth: 2)),
-                ),
+                width: 80, height: 80, fit: BoxFit.cover,
+                errorWidget: (c, u, e) => Container(width: 80, height: 80, color: Colors.grey[200], child: const Icon(Icons.image_not_supported, size: 40, color: Colors.grey)),
+                placeholder: (c, u) => Container(width: 80, height: 80, color: Colors.grey[200]),
               ),
             ),
             const SizedBox(width: 16),
-
-            // Info
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -2015,20 +2296,41 @@ class AdminProductsScreen extends ConsumerWidget {
                 ],
               ),
             ),
-
-            // Actions
+            
             PopupMenuButton<String>(
-              onSelected: (value) {
+              onSelected: (value) async {
                 if (value == 'edit') {
-                  // TODO: Navigate to edit screen
+                  context.push('/admin/products/edit/${product.id}');
                 } else if (value == 'delete') {
-                  // TODO: Handle delete
+                  // --- LOGIC XÓA SẢN PHẨM ---
+                  final confirm = await showDialog<bool>(
+                    context: context,
+                    builder: (ctx) => AlertDialog(
+                      title: const Text('Xác nhận xóa'),
+                      content: Text('Bạn có chắc muốn xóa sản phẩm "${product.name}"? Hành động này không thể hoàn tác.'),
+                      actions: [
+                        TextButton(onPressed: () => Navigator.of(ctx).pop(false), child: const Text('Hủy')),
+                        TextButton(onPressed: () => Navigator.of(ctx).pop(true), child: const Text('Xóa'), style: TextButton.styleFrom(foregroundColor: Colors.red)),
+                      ],
+                    ),
+                  ) ?? false;
+                  
+                  if (confirm) {
+                    final messenger = ScaffoldMessenger.of(context);
+                    try {
+                      await ref.read(adminRepositoryProvider).deleteProduct(product.id);
+                      ref.refresh(adminProductsProvider); // Làm mới danh sách
+                      messenger.showSnackBar(const SnackBar(content: Text('Đã xóa sản phẩm thành công!'), backgroundColor: Colors.green));
+                    } catch (e) {
+                      messenger.showSnackBar(SnackBar(content: Text('Lỗi: $e'), backgroundColor: Colors.red));
+                    }
+                  }
                 }
               },
               itemBuilder: (BuildContext context) => <PopupMenuEntry<String>>[
                 const PopupMenuItem<String>(
                   value: 'edit',
-                  child: ListTile(leading: Icon(Icons.edit), title: Text('Sửa')),
+                  child: ListTile(leading: Icon(Icons.edit_outlined), title: Text('Sửa')),
                 ),
                 const PopupMenuItem<String>(
                   value: 'delete',
@@ -2038,6 +2340,262 @@ class AdminProductsScreen extends ConsumerWidget {
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+================================================================================
+// FILE PATH: lib\features\admin\presentation\widgets\product_form.dart
+================================================================================
+
+import 'dart:io';
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:smartshop_mobile/core/mock_data/models.dart';
+import 'package:smartshop_mobile/features/products/application/product_providers.dart';
+import 'package:cached_network_image/cached_network_image.dart';
+import 'package:smartshop_mobile/core/constants/api_constants.dart';
+
+// Định nghĩa kiểu dữ liệu cho callback onSave, bao gồm cả data và file ảnh
+typedef ProductSaveCallback = void Function(Map<String, dynamic> data, List<XFile> imageFiles);
+
+class ProductForm extends ConsumerStatefulWidget {
+  final Product? product; // null nếu là tạo mới, có giá trị nếu là sửa
+  final ProductSaveCallback onSave;
+
+  const ProductForm({super.key, this.product, required this.onSave});
+
+  @override
+  ConsumerState<ProductForm> createState() => _ProductFormState();
+}
+
+class _ProductFormState extends ConsumerState<ProductForm> {
+  final _formKey = GlobalKey<FormState>();
+  late TextEditingController _nameController;
+  late TextEditingController _priceController;
+  late TextEditingController _stockController;
+  late TextEditingController _descriptionController;
+  late TextEditingController _skuController;
+  late TextEditingController _originalPriceController;
+
+  String? _selectedCategory;
+  String? _selectedBrand;
+  bool _isActive = true;
+  bool _isFeatured = false;
+
+  // State để quản lý ảnh
+  List<XFile> _imageFiles = []; // Danh sách file ảnh mới chờ upload
+  late List<String> _existingImages; // Danh sách ảnh đã có trên server
+  final ImagePicker _picker = ImagePicker();
+
+  @override
+  void initState() {
+    super.initState();
+    final p = widget.product;
+    _nameController = TextEditingController(text: p?.name ?? '');
+    _priceController = TextEditingController(text: p?.price.toString() ?? '');
+    _originalPriceController = TextEditingController(text: p?.originalPrice?.toString() ?? '');
+    _stockController = TextEditingController(text: p?.stock.toString() ?? '');
+    _descriptionController = TextEditingController(text: p?.description ?? '');
+    _skuController = TextEditingController(text: p?.id ?? 'SKU-${DateTime.now().millisecondsSinceEpoch}');
+    _selectedCategory = p?.category?.id;
+    _selectedBrand = p?.brand?.id;
+    _isActive = p?.isActive ?? true;
+    _isFeatured = p?.isFeatured ?? false;
+    _existingImages = List<String>.from(p?.images ?? []);
+  }
+  
+  @override
+  void dispose() {
+    _nameController.dispose();
+    _priceController.dispose();
+    _stockController.dispose();
+    _descriptionController.dispose();
+    _skuController.dispose();
+    _originalPriceController.dispose();
+    super.dispose();
+  }
+
+  void _submit() {
+    if (_formKey.currentState!.validate()) {
+      final data = {
+        'name': _nameController.text.trim(),
+        'description': _descriptionController.text.trim(),
+        'price': double.tryParse(_priceController.text) ?? 0.0,
+        'originalPrice': double.tryParse(_originalPriceController.text),
+        'sku': _skuController.text.trim(),
+        'category': _selectedCategory,
+        'brand': _selectedBrand,
+        'stock': int.tryParse(_stockController.text) ?? 0,
+        'isActive': _isActive,
+        'isFeatured': _isFeatured,
+        'images': _existingImages, // Gửi lại danh sách ảnh cũ đã được cập nhật
+      };
+      widget.onSave(data, _imageFiles); 
+    }
+  }
+  
+  Future<void> _pickImages() async {
+    final List<XFile> pickedFiles = await _picker.pickMultiImage(
+      imageQuality: 80, // Nén ảnh một chút
+    );
+    if (pickedFiles.isNotEmpty) {
+      if ((_existingImages.length + _imageFiles.length + pickedFiles.length) > 5) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Chỉ được upload tối đa 5 ảnh.'), backgroundColor: Colors.orange,)
+        );
+        return;
+      }
+      setState(() {
+        _imageFiles.addAll(pickedFiles);
+      });
+    }
+  }
+
+  void _removeNewImage(int index) {
+    setState(() {
+      _imageFiles.removeAt(index);
+    });
+  }
+  
+  void _removeExistingImage(int index) {
+    // Logic này sẽ xóa ảnh khỏi danh sách sẽ được gửi đi khi cập nhật.
+    // Việc xóa file thật trên server cần được thực hiện riêng.
+    setState(() {
+      _existingImages.removeAt(index);
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final categoriesAsync = ref.watch(categoriesProvider);
+    final brandsAsync = ref.watch(brandsProvider);
+
+    return Form(
+      key: _formKey,
+      child: ListView(
+        padding: const EdgeInsets.all(16),
+        children: [
+          TextFormField(controller: _nameController, decoration: const InputDecoration(labelText: 'Tên sản phẩm*'), validator: (v) => v!.isEmpty ? 'Bắt buộc' : null),
+          const SizedBox(height: 16),
+          TextFormField(controller: _skuController, decoration: const InputDecoration(labelText: 'SKU*'), validator: (v) => v!.isEmpty ? 'Bắt buộc' : null),
+          const SizedBox(height: 16),
+          Row(children: [
+            Expanded(child: TextFormField(controller: _priceController, decoration: const InputDecoration(labelText: 'Giá bán*'), keyboardType: TextInputType.number, validator: (v) => v!.isEmpty ? 'Bắt buộc' : null)),
+            const SizedBox(width: 16),
+            Expanded(child: TextFormField(controller: _originalPriceController, decoration: const InputDecoration(labelText: 'Giá gốc'), keyboardType: TextInputType.number)),
+          ]),
+          const SizedBox(height: 16),
+          TextFormField(controller: _stockController, decoration: const InputDecoration(labelText: 'Số lượng kho*'), keyboardType: TextInputType.number, validator: (v) => v!.isEmpty ? 'Bắt buộc' : null),
+          const SizedBox(height: 16),
+          TextFormField(controller: _descriptionController, decoration: const InputDecoration(labelText: 'Mô tả sản phẩm'), maxLines: 5),
+          const SizedBox(height: 16),
+
+          categoriesAsync.when(
+            data: (categories) => DropdownButtonFormField<String>(
+              value: _selectedCategory,
+              hint: const Text('Chọn danh mục*'),
+              items: categories.map((c) => DropdownMenuItem(value: c.id, child: Text(c.name))).toList(),
+              onChanged: (val) => setState(() => _selectedCategory = val),
+              validator: (value) => value == null ? 'Bắt buộc' : null,
+            ),
+            loading: () => const Center(child: CircularProgressIndicator()),
+            error: (e,s) => Text('Lỗi tải danh mục: $e'),
+          ),
+          const SizedBox(height: 16),
+
+           brandsAsync.when(
+            data: (brands) => DropdownButtonFormField<String>(
+              value: _selectedBrand,
+              hint: const Text('Chọn thương hiệu*'),
+              items: brands.map((b) => DropdownMenuItem(value: b.id, child: Text(b.name))).toList(),
+              onChanged: (val) => setState(() => _selectedBrand = val),
+               validator: (value) => value == null ? 'Bắt buộc' : null,
+            ),
+            loading: () => const Center(child: CircularProgressIndicator()),
+            error: (e,s) => Text('Lỗi tải thương hiệu: $e'),
+          ),
+          const SizedBox(height: 24),
+          
+          Text('Hình ảnh sản phẩm', style: Theme.of(context).textTheme.titleLarge),
+          const SizedBox(height: 12),
+          
+          if (_existingImages.isNotEmpty)
+            GridView.builder(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 4, crossAxisSpacing: 8, mainAxisSpacing: 8),
+              itemCount: _existingImages.length,
+              itemBuilder: (context, index) {
+                return Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    CachedNetworkImage(imageUrl: "${ApiConstants.baseUrl}${_existingImages[index]}", fit: BoxFit.cover, errorWidget: (c,u,e) => const Icon(Icons.error)),
+                    Positioned(
+                      top: -8, right: -8,
+                      child: IconButton(
+                        icon: const CircleAvatar(radius: 12, backgroundColor: Colors.black54, child: Icon(Icons.close, size: 14, color: Colors.white)),
+                        onPressed: () => _removeExistingImage(index),
+                      ),
+                    )
+                  ],
+                );
+              },
+            ),
+          
+          if (_imageFiles.isNotEmpty) ...[
+            const SizedBox(height: 16),
+            GridView.builder(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 4, crossAxisSpacing: 8, mainAxisSpacing: 8),
+              itemCount: _imageFiles.length,
+              itemBuilder: (context, index) {
+                 return Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    Image.file(File(_imageFiles[index].path), fit: BoxFit.cover),
+                    Positioned(
+                      top: -8, right: -8,
+                      child: IconButton(
+                        icon: const CircleAvatar(radius: 12, backgroundColor: Colors.black54, child: Icon(Icons.close, size: 14, color: Colors.white)),
+                        onPressed: () => _removeNewImage(index),
+                      ),
+                    )
+                  ],
+                );
+              },
+            ),
+          ],
+
+          const SizedBox(height: 16),
+          OutlinedButton.icon(
+            icon: const Icon(Icons.add_a_photo_outlined),
+            label: const Text('Thêm ảnh'),
+            onPressed: _pickImages,
+            style: OutlinedButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 12)),
+          ),
+
+          const SizedBox(height: 24),
+          SwitchListTile(
+            title: const Text('Kích hoạt sản phẩm'),
+            value: _isActive,
+            onChanged: (val) => setState(() => _isActive = val),
+          ),
+           SwitchListTile(
+            title: const Text('Sản phẩm nổi bật'),
+            value: _isFeatured,
+            onChanged: (val) => setState(() => _isFeatured = val),
+          ),
+
+          const SizedBox(height: 32),
+          ElevatedButton(
+            onPressed: _submit,
+            child: Text(widget.product == null ? 'Tạo mới' : 'Lưu thay đổi'),
+          )
+        ],
       ),
     );
   }
@@ -2175,29 +2733,20 @@ class AuthNotifier extends StateNotifier<AuthState> {
 
   // --- HÀM ĐÃ ĐƯỢC CẬP NHẬT LOGIC ---
   Future<void> _checkAuthStatus() async {
-    // Đọc thông tin user đã lưu từ secure storage
-    final userMap = await GraphQLConfig.getStoredUser();
-
+    final userMap = await GraphQLConfig.getStoredUser(); 
     if (userMap != null) {
-      // Nếu có, tạo đối tượng User và chuyển sang trạng thái Authenticated
-      final user = User(
-        id: userMap['_id'] ?? 'N/A',
-        username: userMap['username'] ?? 'user',
-        email: userMap['email'] ?? 'N/A',
-        firstName: userMap['firstName'] ?? 'Người dùng',
-        lastName: userMap['lastName'] ?? '',
-        role: userMap['role'] ?? 'customer',
-        avatarUrl: 'https://i.pravatar.cc/150?u=${userMap['_id']}',
-      );
-      state = Authenticated(user);
+      // Dùng User.fromJson để đảm bảo avatarUrl được xử lý đúng
+      // từ dữ liệu đã lưu.
+      final user = User.fromJson(userMap); 
+      state = Authenticated(user); 
     } else {
-      // Nếu không, ở trạng thái Unauthenticated
       state = Unauthenticated();
     }
   }
 
   // Update info
   void updateUserData(User updatedUser) {
+    print('[AUTH] updateUserData nhận được avatarUrl: ${updatedUser.avatarUrl}');
     final currentState = state;
     if (currentState is Authenticated) {
       // Luôn coi đối tượng `updatedUser` nhận được từ server 
@@ -2222,32 +2771,52 @@ class AuthNotifier extends StateNotifier<AuthState> {
   }
 
   Future<void> login(String username, String password) async {
-    state = AuthLoading();
+    state = AuthLoading(); 
     try {
       final responseData = await _ref.read(authRepositoryProvider).login(username, password);
       final userMap = responseData['user'];
-      final token = responseData['jwt'];
+      final token = responseData['jwt']; 
 
-      await GraphQLConfig.setToken(token, userMap);
+      await GraphQLConfig.setToken(token, userMap); 
 
-      final user = User(
-        id: userMap['_id'],
-        username: userMap['username'],
-        email: userMap['email'],
-        firstName: userMap['firstName'],
-        lastName: userMap['lastName'],
-        role: userMap['role'],
-        avatarUrl: 'https://i.pravatar.cc/150?u=${userMap['_id']}',
-      );
-      
-      state = Authenticated(user);
+      // SỬA Ở ĐÂY: Dùng User.fromJson để đảm bảo avatarUrl từ server được xử lý đúng.
+      final user = User.fromJson(userMap);
+      state = Authenticated(user); 
 
     } catch (e) {
-      state = AuthError(e.toString().replaceFirst("Exception: ", ""));
+      state = AuthError(e.toString().replaceFirst("Exception: ", "")); 
       await Future.delayed(const Duration(seconds: 2));
-      if (mounted) state = Unauthenticated();
+      if (mounted) state = Unauthenticated(); 
     }
   }
+
+  // Future<void> login(String username, String password) async {
+  //   state = AuthLoading();
+  //   try {
+  //     final responseData = await _ref.read(authRepositoryProvider).login(username, password);
+  //     final userMap = responseData['user'];
+  //     final token = responseData['jwt'];
+
+  //     await GraphQLConfig.setToken(token, userMap);
+
+  //     final user = User(
+  //       id: userMap['_id'],
+  //       username: userMap['username'],
+  //       email: userMap['email'],
+  //       firstName: userMap['firstName'],
+  //       lastName: userMap['lastName'],
+  //       role: userMap['role'],
+  //       avatarUrl: 'https://i.pravatar.cc/150?u=${userMap['_id']}',
+  //     );
+      
+  //     state = Authenticated(user);
+
+  //   } catch (e) {
+  //     state = AuthError(e.toString().replaceFirst("Exception: ", ""));
+  //     await Future.delayed(const Duration(seconds: 2));
+  //     if (mounted) state = Unauthenticated();
+  //   }
+  // }
   
   Future<void> register({
     required String username,
@@ -3437,6 +4006,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:smartshop_mobile/core/mock_data/models.dart';
 import 'package:smartshop_mobile/features/products/data/product_repository.dart';
+import 'package:smartshop_mobile/features/profile/data/wishlist_repository.dart';
+
 
 // --- LỚP QUẢN LÝ CÁC THAM SỐ LỌC VÀ SẮP XẾP ---
 @immutable
@@ -3448,7 +4019,7 @@ class ProductListFilter {
 
   const ProductListFilter({
     this.page = 1,
-    this.limit = 20, // Số sản phẩm mỗi trang
+    this.limit = 20,
     this.orderBy = 'CREATED_DESC',
     this.condition = const {},
   });
@@ -3465,7 +4036,30 @@ class ProductListFilter {
       condition: condition ?? this.condition,
     );
   }
+
+  @override
+  String toString() {
+    return 'ProductListFilter(page: $page, orderBy: $orderBy, condition: $condition)';
+  }
 }
+
+// --- PROVIDER CHỨA CÁC LỰA CHỌN LỌC CỦA NGƯỜI DÙNG ---
+final productFilterOptionsProvider = StateProvider.autoDispose<ProductListFilter>((ref) {
+  return const ProductListFilter(); 
+});
+
+// --- PROVIDER CHÍNH ĐỂ LẤY DỮ LIỆU SẢN PHẨM ---
+final filteredProductsProvider = FutureProvider.autoDispose<List<Product>>((ref) {
+  final filter = ref.watch(productFilterOptionsProvider); 
+  debugPrint("🔍 [Flutter] Calling API with filter: ${filter.toString()}");
+  return ref.watch(productRepositoryProvider).getProducts(
+    limit: filter.limit,
+    offset: (filter.page - 1) * filter.limit,
+    orderBy: filter.orderBy,
+    condition: filter.condition.isEmpty ? null : filter.condition,
+  );
+});
+
 
 // --- LỚP QUẢN LÝ TRẠNG THÁI CỦA DANH SÁCH SẢN PHẨM ---
 @immutable
@@ -3607,6 +4201,72 @@ final brandsProvider = FutureProvider.autoDispose<List<Brand>>((ref) {
   return ref.watch(productRepositoryProvider).getAllBrands();
 });
 
+final wishlistProvider = StateNotifierProvider<WishlistNotifier, AsyncValue<List<Product>>>((ref) {
+  // Tự động tải wishlist khi provider được khởi tạo
+  return WishlistNotifier(ref)..loadWishlist();
+});
+
+class WishlistNotifier extends StateNotifier<AsyncValue<List<Product>>> {
+  final Ref _ref;
+  List<Product> _lastKnownWishlist = [];
+
+  WishlistNotifier(this._ref) : super(const AsyncValue.loading());
+
+
+
+  Future<void> loadWishlist() async {
+    state = const AsyncValue.loading();
+    try {
+      final wishlist = await _ref.read(wishlistRepositoryProvider).getMyWishlist();
+      _lastKnownWishlist = wishlist; // Lưu lại dữ liệu khi tải thành công
+      state = AsyncValue.data(wishlist);
+    } catch (e, st) {
+      state = AsyncValue.error(e, st);
+    }
+  }
+
+
+  Future<void> toggleWishlist(Product product) async {
+    print("--- Toggling Wishlist for product: ${product.name} ---");
+
+    final currentWishlist = state.valueOrNull ?? [];
+    final isAlreadyIn = currentWishlist.any((p) => p.id == product.id);
+    
+    print("Is product already in wishlist? $isAlreadyIn");
+
+    final previousState = state;
+    
+    // Cập nhật UI tạm thời
+    if (isAlreadyIn) {
+      state = AsyncValue.data(currentWishlist.where((p) => p.id != product.id).toList());
+    } else {
+      state = AsyncValue.data([...currentWishlist, product]);
+    }
+    
+    try {
+      if (isAlreadyIn) {
+        print("🚀 Sending API request: removeFromWishlist");
+        await _ref.read(wishlistRepositoryProvider).removeFromWishlist(product.id);
+        print("✅ API request removeFromWishlist successful");
+      } else {
+        print("🚀 Sending API request: addToWishlist");
+        await _ref.read(wishlistRepositoryProvider).addToWishlist(product.id);
+        print("✅ API request addToWishlist successful");
+      }
+      // Tải lại wishlist từ server để đảm bảo dữ liệu luôn đúng
+      await loadWishlist();
+
+    } catch (e, st) {
+      print("❌ API request FAILED: ${e.toString()}");
+      
+      // Nếu có lỗi, quay lại trạng thái cũ VÀ cập nhật state thành trạng thái lỗi
+      state = AsyncValue.error(e, st);
+      // Giữ lại dữ liệu cũ để UI không bị trống
+      state = previousState;
+    }
+  }
+
+}
 
 
 
@@ -3765,6 +4425,8 @@ import 'package:smartshop_mobile/core/api/graphql_client.dart';
 import 'package:smartshop_mobile/core/mock_data/models.dart';
 import 'package:smartshop_mobile/features/products/data/product_graphql.dart';
 import 'review_graphql.dart';
+import 'package:smartshop_mobile/core/mock_data/mock_data.dart';
+import 'dart:convert';
 
 final productRepositoryProvider = Provider<ProductRepository>((ref) {
   return ProductRepository(client: ref.watch(graphqlClientProvider));
@@ -3873,57 +4535,58 @@ class ProductRepository {
   Future<List<Product>> getProducts({
     required int limit, 
     required int offset,
-    String? orderBy, // Cho phép null
-    Map<String, dynamic>? condition, // Thêm condition
+    String? orderBy,
+    Map<String, dynamic>? condition,
   }) async {
+    final variables = {
+      'first': limit,
+      'offset': offset,
+      'orderBy': orderBy,
+      // Chỉ thêm condition vào variables nếu nó không null và không rỗng
+      if (condition != null && condition.isNotEmpty) 'condition': condition,
+    };
+
+    // --- THÊM LOG Ở ĐÂY ---
+    print("🚀 [ProductRepository] Calling API 'getProducts' with variables:");
+    print(jsonEncode(variables)); // In ra chuỗi JSON để xem chi tiết
+
     final options = QueryOptions(
       document: gql(ProductGraphQL.getProducts),
-      variables: {
-        'first': limit,
-        'offset': offset,
-        'orderBy': orderBy,
-        'condition': condition, // Truyền condition vào variables
-      },
+      variables: variables,
       fetchPolicy: FetchPolicy.networkOnly,
     );
 
     final result = await client.query(options);
+
     if (result.hasException) {
+      // In lỗi ra console để gỡ lỗi
+      print("❌ [ProductRepository] API Error: ${result.exception.toString()}");
       throw Exception(result.exception.toString());
     }
     
     final List<dynamic> productList = result.data?['products']?['nodes'] ?? [];
+    print("✅ [ProductRepository] Received ${productList.length} products.");
     return productList.map((json) => Product.fromJson(json)).toList();
   }
 
 
-  Future<List<Review>> getProductReviews(String productId) async {
-    final options = QueryOptions(
-      document: gql(ReviewGraphQL.getProductReviews),
-      variables: {'productId': productId},
-    );
-    final result = await client.query(options);
-    if (result.hasException) throw Exception(result.exception.toString());
 
-    final List<dynamic> list = result.data?['getProductReviews'] ?? [];
-    return list.map((json) => Review.fromJson(json)).toList();
+  Future<List<Review>> getProductReviews(String productId) async {
+    // TODO: Thay thế bằng lời gọi API thật sự
+    await Future.delayed(const Duration(milliseconds: 500)); // Giả lập độ trễ mạng
+    return mockReviews; 
   }
+
 
   Future<void> createReview({
     required String productId,
     required int rating,
     required String comment,
   }) async {
-    final options = MutationOptions(
-      document: gql(ReviewGraphQL.createReview),
-      variables: {'input': {
-        'productId': productId,
-        'rating': rating,
-        'comment': comment,
-      }},
-    );
-    final result = await client.mutate(options);
-    if (result.hasException) throw Exception(result.exception.toString());
+    // TODO: Thay thế bằng lời gọi API thật sự
+    await Future.delayed(const Duration(seconds: 1));
+    print('Đã tạo review cho sản phẩm $productId: $rating sao - "$comment"');
+    // throw Exception('API tạo review chưa được cài đặt'); // Có thể bật dòng này để test lỗi
   }
 
 
@@ -3975,9 +4638,10 @@ class ReviewGraphQL {
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:smartshop_mobile/features/products/application/product_providers.dart';
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:smartshop_mobile/core/utils/icon_mapper.dart';
+import 'package:smartshop_mobile/features/products/presentation/widgets/product_card.dart';
 
 class ExploreScreen extends ConsumerWidget {
   const ExploreScreen({super.key});
@@ -3986,98 +4650,166 @@ class ExploreScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final categoriesAsync = ref.watch(categoriesProvider);
     final brandsAsync = ref.watch(brandsProvider);
+    final wishlistAsync = ref.watch(wishlistProvider);
 
     return Scaffold(
       // AppBar đã được quản lý bởi MainScreen
-      body: ListView(
-        padding: const EdgeInsets.all(16.0),
-        children: [
-          // 1. Thanh tìm kiếm
-          const TextField(
-            decoration: InputDecoration(
-              hintText: 'Tìm kiếm sản phẩm...',
-              prefixIcon: Icon(Icons.search),
-              filled: true,
-              fillColor: Colors.white,
-            ),
-          ),
-          const SizedBox(height: 24),
-
-          // 2. Danh mục
-          Text('Danh mục sản phẩm', style: Theme.of(context).textTheme.headlineSmall),
-          const SizedBox(height: 16),
-          categoriesAsync.when(
-            data: (categories) => GridView.builder(
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: 3,
-                crossAxisSpacing: 16,
-                mainAxisSpacing: 16,
+      body: RefreshIndicator(
+        onRefresh: () async {
+          // Làm mới tất cả các provider trên trang này
+          ref.refresh(categoriesProvider);
+          ref.refresh(brandsProvider);
+          ref.refresh(wishlistProvider.notifier).loadWishlist();
+        },
+        child: ListView(
+          padding: const EdgeInsets.symmetric(vertical: 16.0),
+          children: [
+            // 1. Thanh tìm kiếm
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16.0),
+              child: GestureDetector(
+                onTap: () => context.push('/search'),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  decoration: BoxDecoration(
+                    color: Theme.of(context).inputDecorationTheme.fillColor,
+                    borderRadius: BorderRadius.circular(30),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(Icons.search, color: Colors.grey[600]),
+                      const SizedBox(width: 8),
+                      Text('Tìm kiếm sản phẩm...', style: TextStyle(color: Colors.grey[700])),
+                    ],
+                  ),
+                ),
               ),
-              itemCount: categories.length,
-              itemBuilder: (context, index) {
-                final category = categories[index];
-                return Card(
-                  child: InkWell(
-                    onTap: () {},
+            ),
+            const SizedBox(height: 24),
+
+            // 2. Danh mục
+            _buildSectionHeader(context, 'Danh mục sản phẩm', () => context.push('/categories')),
+            const SizedBox(height: 16),
+            categoriesAsync.when(
+              data: (categories) => GridView.builder(
+                padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: 4,
+                  crossAxisSpacing: 16,
+                  mainAxisSpacing: 16,
+                  childAspectRatio: 0.9,
+                ),
+                itemCount: categories.length,
+                itemBuilder: (context, index) {
+                  final category = categories[index];
+                  return InkWell(
+                    onTap: () => context.push('/products?categoryId=${category.id}'),
+                    borderRadius: BorderRadius.circular(15),
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Icon(IconMapper.getCategoryIcon(category.name), size: 36, color: Theme.of(context).primaryColor),
-                        const SizedBox(height: 8),
-                        Text(category.name, textAlign: TextAlign.center, maxLines: 2, overflow: TextOverflow.ellipsis),
-                      ],
-                    ),
-                  ),
-                );
-              },
-            ),
-            loading: () => const Center(child: CircularProgressIndicator()),
-            error: (err, stack) => Text('Lỗi: $err'),
-          ),
-          const SizedBox(height: 24),
-          
-          // 3. Thương hiệu
-          Text('Thương hiệu nổi bật', style: Theme.of(context).textTheme.headlineSmall),
-          const SizedBox(height: 16),
-          brandsAsync.when(
-            data: (brands) => SizedBox(
-              height: 100,
-              child: ListView.separated(
-                scrollDirection: Axis.horizontal,
-                itemCount: brands.length,
-                separatorBuilder: (context, index) => const SizedBox(width: 16),
-                itemBuilder: (context, index) {
-                  final brand = brands[index];
-                  return Card(
-                    child: InkWell(
-                      onTap: () {},
-                      child: SizedBox(
-                        width: 100,
-                        child: Center(
-                          child: Icon(IconMapper.getBrandIcon(brand.name), size: 40, color: Colors.grey[800]),
+                        CircleAvatar(
+                          radius: 30,
+                          backgroundColor: Theme.of(context).primaryColor.withOpacity(0.1),
+                          child: Icon(IconMapper.getCategoryIcon(category.name), size: 28, color: Theme.of(context).primaryColor),
                         ),
-                      ),
+                        const SizedBox(height: 8),
+                        Text(category.name, textAlign: TextAlign.center, maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 12)),
+                      ],
                     ),
                   );
                 },
               ),
+              loading: () => const Center(child: CircularProgressIndicator()),
+              error: (err, stack) => Padding(padding: const EdgeInsets.all(16), child: Text('Lỗi tải danh mục: $err')),
             ),
-            loading: () => const Center(child: CircularProgressIndicator()),
-            error: (err, stack) => Text('Lỗi: $err'),
-          ),
-          const SizedBox(height: 24),
+            const SizedBox(height: 24),
+            
+            // 3. Thương hiệu
+            _buildSectionHeader(context, 'Thương hiệu nổi bật', () => context.push('/brands')),
+            const SizedBox(height: 16),
+            brandsAsync.when(
+              data: (brands) => SizedBox(
+                height: 80,
+                child: ListView.separated(
+                  scrollDirection: Axis.horizontal,
+                  padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                  itemCount: brands.length,
+                  separatorBuilder: (context, index) => const SizedBox(width: 16),
+                  itemBuilder: (context, index) {
+                    final brand = brands[index];
+                    return Card(
+                      child: InkWell(
+                        onTap: () => context.push('/products?brandId=${brand.id}'),
+                        child: SizedBox(
+                          width: 120,
+                          child: Center(child: Icon(IconMapper.getBrandIcon(brand.name), size: 40, color: Colors.grey[800])),
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              ),
+              loading: () => const Center(child: CircularProgressIndicator()),
+              error: (err, stack) => Padding(padding: const EdgeInsets.all(16), child: Text('Lỗi tải thương hiệu: $err')),
+            ),
+            const SizedBox(height: 24),
 
-          // 4. Wishlist (Tạm thời)
-          Text('Danh sách yêu thích', style: Theme.of(context).textTheme.headlineSmall),
-          const SizedBox(height: 16),
-          const Card(
-            child: Padding(
-              padding: EdgeInsets.all(32.0),
-              child: Center(child: Text('Tính năng Wishlist sẽ được phát triển sau.')),
+            // 4. Wishlist
+            _buildSectionHeader(context, 'Yêu thích', () => context.push('/wishlist')),
+            const SizedBox(height: 16),
+            wishlistAsync.when(
+              data: (wishlist) {
+                if (wishlist.isEmpty) {
+                  return const Card(
+                    child: Padding(
+                      padding: EdgeInsets.all(32.0),
+                      child: Center(child: Text('Chưa có sản phẩm yêu thích.')),
+                    ),
+                  );
+                }
+                return SizedBox(
+                  height: 290,
+                  child: ListView.separated(
+                    scrollDirection: Axis.horizontal,
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    itemCount: wishlist.length > 5 ? 5 : wishlist.length,
+                    separatorBuilder: (context, index) => const SizedBox(width: 16),
+                    itemBuilder: (context, index) {
+                      return SizedBox(
+                        width: 180,
+                        child: ProductCard(product: wishlist[index]),
+                      );
+                    },
+                  ),
+                );
+              },
+              loading: () => const SizedBox(
+                height: 290,
+                child: Center(child: CircularProgressIndicator()),
+              ),
+              error: (err, stack) => SizedBox(
+                height: 290,
+                child: Center(child: Text('Lỗi tải Wishlist: $err')),
+              ),
             ),
-          )
+            const SizedBox(height: 24),
+          ],
+        ),
+      ),
+    );
+  }
+  
+  Widget _buildSectionHeader(BuildContext context, String title, VoidCallback onViewAll) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16.0),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(title, style: Theme.of(context).textTheme.headlineSmall),
+          TextButton(onPressed: onViewAll, child: const Text('Xem tất cả')),
         ],
       ),
     );
@@ -4251,7 +4983,6 @@ class HomeScreen extends ConsumerWidget {
 
     return Scaffold(
       body: RefreshIndicator(
-        // --- SỬA LẠI HÀM NÀY ---
         onRefresh: () async {
           // Dùng await để đợi, không dùng return
           await Future.wait([
@@ -4657,17 +5388,57 @@ class ProductsScreen extends ConsumerStatefulWidget {
 }
 
 class _ProductsScreenState extends ConsumerState<ProductsScreen> {
+  // --- STATE CỤC BỘ ---
   late ProductListFilter _filter;
-  // --- THÊM LẠI KHAI BÁO NÀY ---
   final ScrollController _scrollController = ScrollController();
+  List<Product> _products = [];
+  bool _isLoadingMore = false;
+  bool _canLoadMore = true;
 
   @override
   void initState() {
     super.initState();
+    // Khởi tạo bộ lọc ban đầu, không gọi ref ở đây
     _filter = ProductListFilter(
       condition: widget.isFeaturedOnly ? {'isFeatured': true} : {},
       orderBy: 'CREATED_DESC',
     );
+    _scrollController.addListener(_onScroll);
+  }
+
+  void _onScroll() {
+    if (_scrollController.position.pixels >= _scrollController.position.maxScrollExtent * 0.9 &&
+        !_isLoadingMore && _canLoadMore) {
+      _loadNextPage();
+    }
+  }
+
+  Future<void> _loadNextPage() async {
+    setState(() => _isLoadingMore = true);
+    
+    final nextPageFilter = _filter.copyWith(page: _filter.page + 1);
+    
+    try {
+      // Dùng ref.read để gọi một lần, không theo dõi
+      final newProducts = await ref.read(productsProvider(nextPageFilter).future);
+      if (mounted) {
+        setState(() {
+          _products.addAll(newProducts);
+          _filter = nextPageFilter; // Cập nhật page hiện tại
+          _canLoadMore = newProducts.length == _filter.limit;
+          _isLoadingMore = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) setState(() => _isLoadingMore = false);
+    }
+  }
+
+  Future<void> _refresh() async {
+    // Khi refresh, cập nhật _filter và để `ref.watch` trong build tự xử lý
+    setState(() {
+      _filter = _filter.copyWith(page: 1);
+    });
   }
 
   @override
@@ -4678,6 +5449,7 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // --- LẮNG NGHE PROVIDER Ở ĐÂY ---
     final productsAsync = ref.watch(productsProvider(_filter));
 
     return Scaffold(
@@ -4703,11 +5475,10 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
             icon: const Icon(Icons.filter_list),
             tooltip: "Lọc sản phẩm",
             onPressed: () async {
-              final newFilter = await context.push<ProductListFilter>(
+              final newFilter = await context.push<ProductListFilter?>(
                 '/filter',
                 extra: _filter,
               );
-              
               if (newFilter != null) {
                 setState(() {
                   _filter = newFilter;
@@ -4717,22 +5488,24 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
           ),
         ],
       ),
-      body: productsAsync.when(
-        data: (products) {
-          if (products.isEmpty) {
-            return RefreshIndicator(
-              onRefresh: () async => ref.refresh(productsProvider(_filter)),
-              child: ListView(children: const [Center(child: Text('Không có sản phẩm nào phù hợp.'))]),
-            );
-          }
-          return RefreshIndicator(
-            onRefresh: () async => ref.refresh(productsProvider(_filter)),
-            // --- SỬA LẠI LỜI GỌI HÀM NÀY ---
-            child: _buildGridView(products, false), // Tạm thời isLoadingMore là false
-          );
-        },
-        loading: () => const Center(child: CircularProgressIndicator()),
-        error: (err, stack) => Center(child: Text('Lỗi: $err')),
+      body: RefreshIndicator(
+        onRefresh: _refresh,
+        child: productsAsync.when(
+          data: (products) {
+            // Khi dữ liệu từ provider thay đổi (lần đầu hoặc sau khi lọc/sắp xếp)
+            // cập nhật lại danh sách sản phẩm cục bộ
+            if (_filter.page == 1) {
+              _products = products;
+              _canLoadMore = products.length == _filter.limit;
+            }
+            if (_products.isEmpty) {
+              return ListView(children: const [Center(child: Text('Không có sản phẩm nào phù hợp.'))]);
+            }
+            return _buildGridView(_products, _isLoadingMore);
+          },
+          loading: () => const Center(child: CircularProgressIndicator()),
+          error: (err, stack) => Center(child: Text('Lỗi: $err')),
+        ),
       ),
     );
   }
@@ -4740,20 +5513,17 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
   PopupMenuItem<String> _buildSortMenuItem(String value, String text, String? currentValue) {
     return PopupMenuItem<String>(
       value: value,
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
+      child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
           Text(text),
-          if (value == currentValue)
-            const Icon(Icons.check, color: Colors.blue),
+          if (value == currentValue) const Icon(Icons.check, color: Colors.blue),
         ],
       ),
     );
   }
 
-  Widget _buildGridView(List<dynamic> products, bool isLoadingMore) {
+  Widget _buildGridView(List<Product> products, bool isLoadingMore) {
     return GridView.builder(
-      controller: _scrollController, // Sử dụng scroll controller
+      controller: _scrollController,
       padding: const EdgeInsets.all(16),
       gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
         crossAxisCount: 2,
@@ -4785,8 +5555,8 @@ import 'package:smartshop_mobile/core/constants/api_constants.dart';
 import 'package:smartshop_mobile/core/mock_data/models.dart';
 import 'package:smartshop_mobile/features/products/application/product_providers.dart';
 import 'package:smartshop_mobile/features/cart/application/cart_provider.dart';
-import 'package:smartshop_mobile/features/products/presentation/widgets/review_list.dart'; // Vẫn import file này
-import 'package:collection/collection.dart';
+import 'package:smartshop_mobile/features/products/presentation/widgets/review_list.dart';
+import 'package:share_plus/share_plus.dart';
 
 class ProductDetailScreen extends ConsumerStatefulWidget {
   final String productId;
@@ -4814,19 +5584,13 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> with 
     _tabController.dispose();
     super.dispose();
   }
-  
-  // HÀM HELPER ĐỂ TẠO URL HÌNH ẢNH AN TOÀN
-  String _getImageUrl(String? imagePath) {
-    if (imagePath == null || imagePath.isEmpty) {
-      return 'https://via.placeholder.com/400';
-    }
-    if (imagePath.startsWith('http')) {
-      return imagePath;
-    }
-    // SỬA Ở ĐÂY
-    return "${ApiConstants.baseUrl}$imagePath";
-  }
 
+  String _getImageUrl(String? imagePath) {
+    if (imagePath == null || imagePath.isEmpty) return 'https://via.placeholder.com/400';
+    if (imagePath.startsWith('http')) return imagePath;
+    if (imagePath.startsWith('/')) return "${ApiConstants.baseUrl}$imagePath";
+    return "${ApiConstants.baseUrl}/img/$imagePath";
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -4867,7 +5631,27 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> with 
   }
   
   Widget _buildProductUI(BuildContext context, Product product) {
+    ref.listen<AsyncValue<List<Product>>>(wishlistProvider, (previous, next) {
+      // Nếu trạng thái mới là lỗi, và trạng thái trước đó không phải lỗi
+      if (next is AsyncError && previous is! AsyncError) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Lỗi Wishlist: ${next.error.toString()}'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    });
+
+    
     final formatCurrency = NumberFormat.currency(locale: 'vi_VN', symbol: '₫');
+    final wishlistState = ref.watch(wishlistProvider);
+    // Lấy danh sách sản phẩm từ trạng thái, nếu có
+    final wishlistProducts = wishlistState.valueOrNull ?? [];
+    // Kiểm tra xem sản phẩm hiện tại có trong danh sách không
+    final isInWishlist = wishlistProducts.any((p) => p.id == product.id);
+
+
 
     return Scaffold(
       body: NestedScrollView(
@@ -4883,8 +5667,28 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> with 
                 onPressed: () => context.pop(),
               ),
               actions: [
-                IconButton(onPressed: () {}, icon: const Icon(Icons.favorite_border)),
-                IconButton(onPressed: () {}, icon: const Icon(Icons.share_outlined)),
+                IconButton(
+                  onPressed: () {
+                    // Gọi toggleWishlist và không cần làm gì thêm
+                    ref.read(wishlistProvider.notifier).toggleWishlist(product);
+                  },
+                  icon: Icon(
+                    isInWishlist ? Icons.favorite : Icons.favorite_border,
+                    color: isInWishlist ? Colors.red : Colors.grey,
+                  ),
+                  tooltip: isInWishlist ? 'Xóa khỏi Yêu thích' : 'Thêm vào Yêu thích',
+                ),
+
+
+                IconButton(
+                  onPressed: () {
+                    // Logic chia sẻ
+                    final productUrl = "https://smartshop-react.onrender.com/products/${product.id}";
+                    Share.share('Xem sản phẩm tuyệt vời này nè: ${product.name}\n$productUrl');
+                  },
+                  icon: const Icon(Icons.share_outlined)
+                ),
+
               ],
               flexibleSpace: FlexibleSpaceBar(
                 background: Stack(
@@ -4950,7 +5754,30 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> with 
                           .headlineMedium
                           ?.copyWith(fontWeight: FontWeight.bold),
                     ),
+                    const SizedBox(height: 12),
+
+                    // --- THÔNG TIN MỚI ĐÃ ĐƯỢC THÊM ---
+                    Row(
+                      children: [
+                        Text(
+                          'SKU: ${product.id}',
+                          style: TextStyle(color: Colors.grey[600], fontSize: 14),
+                        ),
+                        const SizedBox(width: 4),
+                        Text('•', style: TextStyle(color: Colors.grey[600])),
+                        const SizedBox(width: 4),
+                        Text(
+                          'Kho: ${product.stock}',
+                          style: TextStyle(
+                            color: product.stock > 0 ? Colors.green.shade700 : Colors.red.shade700,
+                            fontSize: 14,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ],
+                    ),
                     const SizedBox(height: 16),
+
                     Row(
                       children: [
                         Text(
@@ -5036,7 +5863,10 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> with 
               padding: const EdgeInsets.all(20.0),
               child: Text(product.description, style: Theme.of(context).textTheme.bodyLarge?.copyWith(height: 1.6)),
             ),
-            ReviewList(productId: product.id),
+            SingleChildScrollView(
+              padding: const EdgeInsets.only(bottom: 20),
+              child: ReviewList(productId: product.id),
+            ),
           ],
         ),
       ),
@@ -5103,9 +5933,18 @@ import 'package:go_router/go_router.dart';
 import 'package:smartshop_mobile/features/products/application/search_provider.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:smartshop_mobile/core/utils/formatter.dart';
+import 'package:smartshop_mobile/core/constants/api_constants.dart'; // Thêm import
 
 class SearchScreen extends ConsumerWidget {
   const SearchScreen({super.key});
+  
+  // --- THÊM HÀM HELPER NÀY ---
+  String _getImageUrl(String? imagePath) {
+    if (imagePath == null || imagePath.isEmpty) return '';
+    if (imagePath.startsWith('http')) return imagePath;
+    if (imagePath.startsWith('/')) return "${ApiConstants.baseUrl}$imagePath";
+    return "${ApiConstants.baseUrl}/img/$imagePath";
+  }
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -5133,7 +5972,6 @@ class SearchScreen extends ConsumerWidget {
           },
         ),
       ),
-      // --- SỬA LẠI KHỐI NÀY ---
       body: switch (searchState) {
         SearchInitial() => const Center(child: Text('Nhập từ khóa để tìm kiếm (ít nhất 3 ký tự).')),
         SearchLoading() => const Center(child: CircularProgressIndicator()),
@@ -5143,16 +5981,18 @@ class SearchScreen extends ConsumerWidget {
                 itemCount: products.length,
                 itemBuilder: (context, index) {
                   final product = products[index];
+                  // --- SỬA LẠI CÁCH LẤY URL ---
+                  final imageUrl = _getImageUrl(product.images.isNotEmpty ? product.images[0] : null);
+
                   return ListTile(
-                    leading: product.images.isNotEmpty
-                      ? CachedNetworkImage(
-                          imageUrl: "http://10.0.2.2:4000${product.images[0]}",
-                          width: 50,
-                          height: 50,
-                          fit: BoxFit.cover,
-                          errorWidget: (context, url, error) => const Icon(Icons.image_not_supported),
-                        )
-                      : Container(width: 50, height: 50, color: Colors.grey[200], child: const Icon(Icons.image)),
+                    leading: CachedNetworkImage(
+                      imageUrl: imageUrl,
+                      width: 50,
+                      height: 50,
+                      fit: BoxFit.cover,
+                      errorWidget: (context, url, error) => const Icon(Icons.image_not_supported),
+                      placeholder: (context, url) => const Center(child: CircularProgressIndicator(strokeWidth: 2)),
+                    ),
                     title: Text(product.name),
                     subtitle: Text(AppFormatters.currency.format(product.price)),
                     onTap: () => context.push('/product/${product.id}'),
@@ -5160,9 +6000,86 @@ class SearchScreen extends ConsumerWidget {
                 },
               ),
         SearchError(message: final message) => Center(child: Text('Lỗi: $message')),
-        // --- THÊM TRƯỜNG HỢP MẶC ĐỊNH ---
         _ => const Center(child: Text('Trạng thái không xác định.')),
       },
+    );
+  }
+}
+
+================================================================================
+// FILE PATH: lib\features\products\presentation\screens\write_review_screen.dart
+================================================================================
+
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:smartshop_mobile/features/products/data/product_repository.dart';
+
+class WriteReviewScreen extends ConsumerStatefulWidget {
+  final String productId;
+  const WriteReviewScreen({super.key, required this.productId});
+
+  @override
+  ConsumerState<WriteReviewScreen> createState() => _WriteReviewScreenState();
+}
+
+class _WriteReviewScreenState extends ConsumerState<WriteReviewScreen> {
+  int _rating = 0;
+  final _commentController = TextEditingController();
+
+  void _submitReview() async {
+    if (_rating == 0) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Vui lòng chọn số sao.')));
+      return;
+    }
+    
+    try {
+      await ref.read(productRepositoryProvider).createReview(
+        productId: widget.productId,
+        rating: _rating,
+        comment: _commentController.text,
+      );
+      Navigator.of(context).pop(true); // Trả về true để báo hiệu đã submit thành công
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Lỗi: $e')));
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: const Text('Viết đánh giá')),
+      body: ListView(
+        padding: const EdgeInsets.all(16),
+        children: [
+          Text('Bạn đánh giá sản phẩm này thế nào?', style: Theme.of(context).textTheme.titleLarge),
+          const SizedBox(height: 16),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: List.generate(5, (index) => IconButton(
+              icon: Icon(
+                index < _rating ? Icons.star : Icons.star_border,
+                color: Colors.amber,
+                size: 40,
+              ),
+              onPressed: () => setState(() => _rating = index + 1),
+            )),
+          ),
+          const SizedBox(height: 24),
+          TextField(
+            controller: _commentController,
+            decoration: const InputDecoration(
+              labelText: 'Chia sẻ cảm nhận của bạn',
+              border: OutlineInputBorder(),
+            ),
+            maxLines: 5,
+          ),
+          const SizedBox(height: 24),
+          ElevatedButton(
+            onPressed: _submitReview,
+            child: const Text('Gửi đánh giá'),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -5631,6 +6548,7 @@ class ProfileGraphQL {
         firstName
         lastName
         role
+        avatarUrl
       }
     }
   ''';
@@ -5709,7 +6627,10 @@ class ProfileRepository {
       throw Exception('Cập nhật thất bại, không nhận được dữ liệu trả về.');
     }
 
-    return User.fromJson(data);
+    final user = User.fromJson(data);
+    print('[REPO] updateProfile tạo User object với avatarUrl: ${user.avatarUrl}');
+
+    return user;
   }
 
   Future<User> updateAvatar(XFile imageFile) async {
@@ -5743,7 +6664,119 @@ class ProfileRepository {
       throw Exception('Cập nhật avatar thất bại.');
     }
 
-    return User.fromJson(data);
+    final user = User.fromJson(data);
+    print('[REPO] updateAvatar tạo User object với avatarUrl: ${user.avatarUrl}');
+
+    return user;
+  }
+}
+
+================================================================================
+// FILE PATH: lib\features\profile\data\wishlist_graphql.dart
+================================================================================
+
+class WishlistGraphQL {
+  static const String productFragmentForWishlist = r'''
+    fragment ProductDataForWishlist on Product {
+      _id
+      name
+      price
+      originalPrice
+      images
+      stock
+      category { _id name }
+      brand { _id name }
+    }
+  ''';
+  
+  static const String wishlistItemFragment = r'''
+    fragment WishlistItemData on WishlistItem {
+      _id
+      product {
+        ...ProductDataForWishlist
+      }
+    }
+  ''';
+
+  // --- SỬA LẠI CÁC CÂU LỆNH SỬ DỤNG FRAGMENT ---
+
+  // Kết hợp query và các fragment cần thiết
+  static const String getMyWishlist = '''
+    query GetMyWishlist {
+      myWishlist {
+        ...WishlistItemData
+      }
+    }
+    $wishlistItemFragment
+    $productFragmentForWishlist
+  ''';
+  
+  static const String isProductInWishlist = r'''
+    query IsProductInWishlist($productId: ID!) {
+      isProductInWishlist(productId: $productId)
+    }
+  ''';
+
+  // Kết hợp mutation và các fragment cần thiết
+  static const String addToWishlist = '''
+    mutation AddToWishlist(\$productId: ID!) {
+      addToWishlist(productId: \$productId) {
+        ...WishlistItemData
+      }
+    }
+    $wishlistItemFragment
+    $productFragmentForWishlist
+  ''';
+  
+  static const String removeFromWishlist = r'''
+    mutation RemoveFromWishlist($productId: ID!) {
+      removeFromWishlist(productId: $productId)
+    }
+  ''';
+}
+
+================================================================================
+// FILE PATH: lib\features\profile\data\wishlist_repository.dart
+================================================================================
+
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:graphql_flutter/graphql_flutter.dart';
+import 'package:smartshop_mobile/core/api/graphql_client.dart';
+import 'package:smartshop_mobile/core/mock_data/models.dart';
+import 'package:smartshop_mobile/features/profile/data/wishlist_graphql.dart';
+
+final wishlistRepositoryProvider = Provider((ref) => WishlistRepository(client: ref.watch(graphqlClientProvider)));
+
+class WishlistRepository {
+  final GraphQLClient client;
+  WishlistRepository({required this.client});
+
+  Future<List<Product>> getMyWishlist() async {
+    final options = QueryOptions(document: gql(WishlistGraphQL.getMyWishlist), fetchPolicy: FetchPolicy.networkOnly);
+    final result = await client.query(options);
+    if (result.hasException) throw Exception(result.exception.toString());
+    
+    final List<dynamic> items = result.data?['myWishlist'] ?? [];
+    return items.map((item) => Product.fromJson(item['product'])).toList();
+  }
+  
+  Future<void> addToWishlist(String productId) async {
+    final options = MutationOptions(document: gql(WishlistGraphQL.addToWishlist), variables: {'productId': productId});
+    final result = await client.mutate(options);
+    if (result.hasException) throw Exception(result.exception.toString());
+  }
+
+  Future<void> removeFromWishlist(String productId) async {
+    final options = MutationOptions(document: gql(WishlistGraphQL.removeFromWishlist), variables: {'productId': productId});
+    final result = await client.mutate(options);
+    if (result.hasException) throw Exception(result.exception.toString());
+  }
+  
+  Future<bool> isProductInWishlist(String productId) async {
+    final options = QueryOptions(document: gql(WishlistGraphQL.isProductInWishlist), variables: {'productId': productId});
+    final result = await client.query(options);
+    if (result.hasException) return false;
+    return result.data?['isProductInWishlist'] ?? false;
   }
 }
 
@@ -5861,6 +6894,10 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
     final authState = ref.watch(authProvider);
     final user = (authState is Authenticated) ? authState.user : null;
     final theme = Theme.of(context);
+
+    if (user != null) {
+      print('[UI] Màn hình EditProfile đang build với avatarUrl: ${user.avatarUrl}');
+    }
 
     return Scaffold(
       appBar: AppBar(
@@ -6103,7 +7140,6 @@ class OrderDetailScreen extends ConsumerWidget {
   final String orderNumber;
   const OrderDetailScreen({super.key, required this.orderNumber});
 
-  // Hàm xử lý hủy đơn
   void _handleCancelOrder(BuildContext context, WidgetRef ref) async {
     final bool? confirm = await showDialog<bool>(
       context: context,
@@ -6111,10 +7147,7 @@ class OrderDetailScreen extends ConsumerWidget {
         title: const Text('Xác nhận hủy đơn hàng'),
         content: const Text('Bạn có chắc chắn muốn hủy đơn hàng này? Hành động này không thể hoàn tác.'),
         actions: [
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(false),
-            child: const Text('Không'),
-          ),
+          TextButton(onPressed: () => Navigator.of(ctx).pop(false), child: const Text('Không')),
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(true),
             child: const Text('Xác nhận hủy'),
@@ -6125,7 +7158,7 @@ class OrderDetailScreen extends ConsumerWidget {
     );
 
     if (confirm == true) {
-      final messenger = ScaffoldMessenger.of(context); // Lưu lại messenger
+      final messenger = ScaffoldMessenger.of(context);
       try {
         await ref.read(orderRepositoryProvider).cancelOrder(orderNumber);
         ref.refresh(myOrdersProvider);
@@ -6141,6 +7174,13 @@ class OrderDetailScreen extends ConsumerWidget {
     }
   }
 
+  String getImageUrl(String? imagePath) {
+    if (imagePath == null || imagePath.isEmpty) return '';
+    if (imagePath.startsWith('http')) return imagePath;
+    if (imagePath.startsWith('/')) return "${ApiConstants.baseUrl}$imagePath";
+    return "${ApiConstants.baseUrl}/img/$imagePath";
+  }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final orderAsyncValue = ref.watch(orderDetailProvider(orderNumber));
@@ -6150,7 +7190,9 @@ class OrderDetailScreen extends ConsumerWidget {
       body: orderAsyncValue.when(
         data: (order) {
           final canCancel = order.status == 'pending' || order.status == 'confirmed';
-          
+          // --- THÊM LẠI KHAI BÁO BIẾN BỊ THIẾU ---
+          final isDelivered = order.status == 'delivered';
+
           return ListView(
              padding: const EdgeInsets.all(16),
              children: [
@@ -6160,12 +7202,32 @@ class OrderDetailScreen extends ConsumerWidget {
                  Card(
                    margin: const EdgeInsets.only(bottom: 12),
                    child: ListTile(
-                     leading: item.product?.images.isNotEmpty ?? false
-                        ? CachedNetworkImage(imageUrl: "${ApiConstants.baseUrl}${item.product!.images[0]}", width: 50, errorWidget: (c,u,e) => const Icon(Icons.error))
-                        : const Icon(Icons.image_not_supported),
+                     leading: CachedNetworkImage(
+                        imageUrl: getImageUrl(item.product?.images.isNotEmpty ?? false ? item.product!.images[0] : null), 
+                        width: 50,
+                        height: 50,
+                        fit: BoxFit.cover,
+                        errorWidget: (c,u,e) => const Icon(Icons.image_not_supported, color: Colors.grey),
+                        placeholder: (c,u) => const Center(child: CircularProgressIndicator(strokeWidth: 2)),
+                      ),
                      title: Text(item.productName),
                      subtitle: Text('Số lượng: ${item.quantity}'),
-                     trailing: Text(AppFormatters.currency.format(item.priceAtOrder * item.quantity)),
+                     // --- SỬA LẠI LOGIC HIỂN THỊ NÚT ---
+                     trailing: isDelivered 
+                        ? TextButton(
+                            child: const Text('Đánh giá'),
+                            onPressed: () {
+                              // Đảm bảo item.product không null trước khi điều hướng
+                              if (item.product != null) {
+                                context.push('/product/${item.product!.id}/review');
+                              } else {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(content: Text('Không thể đánh giá sản phẩm đã bị xóa.'))
+                                );
+                              }
+                            },
+                          )
+                        : Text(AppFormatters.currency.format(item.priceAtOrder * item.quantity)),
                    ),
                  ),
                 const Divider(height: 32),
@@ -6295,6 +7357,7 @@ class ProfileScreen extends ConsumerWidget {
             title: 'Đơn hàng của tôi',
             onTap: () => context.go('/my-orders'),
           ),
+          _buildMenuItem(context, icon: Icons.favorite_border, title: 'Danh sách yêu thích', onTap: () => context.push('/wishlist')),
           _buildMenuItem(context, icon: Icons.location_on_outlined, title: 'Địa chỉ nhận hàng', onTap: () => context.push('/addresses')),
           _buildMenuItem(context, icon: Icons.payment_outlined, title: 'Phương thức thanh toán', onTap: () {}),
           _buildMenuItem(context, icon: Icons.notifications_outlined, title: 'Thông báo', onTap: () => context.push('/notifications')),
@@ -6626,6 +7689,67 @@ Thời gian làm việc: 8:00 – 18:00 từ Thứ 2 đến Thứ 7
 
 """;
 
+
+================================================================================
+// FILE PATH: lib\features\profile\presentation\screens\wishlist_screen.dart
+================================================================================
+
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:smartshop_mobile/features/products/application/product_providers.dart';
+import 'package:smartshop_mobile/features/products/presentation/widgets/product_card.dart';
+
+class WishlistScreen extends ConsumerWidget {
+  const WishlistScreen({super.key});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    // --- DÒNG BỊ THIẾU ĐÃ ĐƯỢC THÊM VÀO ĐÂY ---
+    final wishlistAsync = ref.watch(wishlistProvider);
+
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Danh sách yêu thích'),
+      ),
+      body: wishlistAsync.when(
+        data: (wishlist) {
+          if (wishlist.isEmpty) {
+            return const Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.favorite_border, size: 80, color: Colors.grey),
+                  SizedBox(height: 16),
+                  Text('Danh sách yêu thích của bạn trống', style: TextStyle(fontSize: 18)),
+                   SizedBox(height: 8),
+                  Text('Hãy nhấn ❤️ trên sản phẩm để thêm vào đây nhé!', style: TextStyle(color: Colors.grey)),
+                ],
+              ),
+            );
+          }
+          return RefreshIndicator(
+            onRefresh: () => ref.refresh(wishlistProvider.notifier).loadWishlist(),
+            child: GridView.builder(
+              padding: const EdgeInsets.all(16),
+              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: 2,
+                childAspectRatio: 0.65,
+                crossAxisSpacing: 16,
+                mainAxisSpacing: 16,
+              ),
+              itemCount: wishlist.length,
+              itemBuilder: (context, index) {
+                return ProductCard(product: wishlist[index]);
+              },
+            ),
+          );
+        },
+        loading: () => const Center(child: CircularProgressIndicator()),
+        error: (err, stack) => Center(child: Text('Lỗi: $err')),
+      ),
+    );
+  }
+}
 
 ================================================================================
 // FILE PATH: test\widget_test.dart
