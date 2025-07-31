@@ -89,4 +89,28 @@ class AdminGraphQL {
     ${ProductGraphQL.productFragment}
   ''';
 
+  static const String createProduct = '''
+    mutation CreateProduct(\$input: ProductInput!) {
+      createProduct(input: \$input) {
+        ...ProductData
+      }
+    }
+    ${ProductGraphQL.productFragment}
+  ''';
+  
+  static const String updateProduct = '''
+    mutation UpdateProduct(\$id: ID!, \$input: ProductInput!) {
+      updateProduct(id: \$id, input: \$input) {
+        ...ProductData
+      }
+    }
+    ${ProductGraphQL.productFragment}
+  ''';
+
+  static const String deleteProduct = r'''
+    mutation DeleteProduct($id: ID!) {
+      deleteProduct(id: $id)
+    }
+  ''';
+
 }

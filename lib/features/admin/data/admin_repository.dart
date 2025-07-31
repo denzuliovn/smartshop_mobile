@@ -93,4 +93,35 @@ class AdminRepository {
     return list.map((json) => Product.fromJson(json)).toList();
   }
 
+  Future<Product> createProduct(Map<String, dynamic> productData) async {
+    final options = MutationOptions(
+      document: gql(AdminGraphQL.createProduct),
+      variables: {'input': productData},
+    );
+    final result = await client.mutate(options);
+    if (result.hasException) throw Exception(result.exception.toString());
+    
+    return Product.fromJson(result.data!['createProduct']);
+  }
+  
+  Future<Product> updateProduct(String id, Map<String, dynamic> productData) async {
+    final options = MutationOptions(
+      document: gql(AdminGraphQL.updateProduct),
+      variables: {'id': id, 'input': productData},
+    );
+    final result = await client.mutate(options);
+    if (result.hasException) throw Exception(result.exception.toString());
+
+    return Product.fromJson(result.data!['updateProduct']);
+  }
+
+  Future<void> deleteProduct(String id) async {
+    final options = MutationOptions(
+      document: gql(AdminGraphQL.deleteProduct),
+      variables: {'id': id},
+    );
+    final result = await client.mutate(options);
+    if (result.hasException) throw Exception(result.exception.toString());
+  }
+
 }

@@ -88,6 +88,7 @@ class ProfileScreen extends ConsumerWidget {
             title: 'Đơn hàng của tôi',
             onTap: () => context.go('/my-orders'),
           ),
+          _buildMenuItem(context, icon: Icons.favorite_border, title: 'Danh sách yêu thích', onTap: () => context.push('/wishlist')),
           _buildMenuItem(context, icon: Icons.location_on_outlined, title: 'Địa chỉ nhận hàng', onTap: () => context.push('/addresses')),
           _buildMenuItem(context, icon: Icons.payment_outlined, title: 'Phương thức thanh toán', onTap: () {}),
           _buildMenuItem(context, icon: Icons.notifications_outlined, title: 'Thông báo', onTap: () => context.push('/notifications')),

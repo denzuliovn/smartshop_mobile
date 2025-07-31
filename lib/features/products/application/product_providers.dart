@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:smartshop_mobile/core/mock_data/models.dart';
 import 'package:smartshop_mobile/features/products/data/product_repository.dart';
+import 'package:smartshop_mobile/features/profile/data/wishlist_repository.dart';
+
 
 // --- LỚP QUẢN LÝ CÁC THAM SỐ LỌC VÀ SẮP XẾP ---
 @immutable
@@ -13,7 +15,7 @@ class ProductListFilter {
 
   const ProductListFilter({
     this.page = 1,
-    this.limit = 20, // Số sản phẩm mỗi trang
+    this.limit = 20,
     this.orderBy = 'CREATED_DESC',
     this.condition = const {},
   });
@@ -30,7 +32,30 @@ class ProductListFilter {
       condition: condition ?? this.condition,
     );
   }
+
+  @override
+  String toString() {
+    return 'ProductListFilter(page: $page, orderBy: $orderBy, condition: $condition)';
+  }
 }
+
+// --- PROVIDER CHỨA CÁC LỰA CHỌN LỌC CỦA NGƯỜI DÙNG ---
+final productFilterOptionsProvider = StateProvider.autoDispose<ProductListFilter>((ref) {
+  return const ProductListFilter(); 
+});
+
+// --- PROVIDER CHÍNH ĐỂ LẤY DỮ LIỆU SẢN PHẨM ---
+final filteredProductsProvider = FutureProvider.autoDispose<List<Product>>((ref) {
+  final filter = ref.watch(productFilterOptionsProvider); 
+  debugPrint("🔍 [Flutter] Calling API with filter: ${filter.toString()}");
+  return ref.watch(productRepositoryProvider).getProducts(
+    limit: filter.limit,
+    offset: (filter.page - 1) * filter.limit,
+    orderBy: filter.orderBy,
+    condition: filter.condition.isEmpty ? null : filter.condition,
+  );
+});
+
 
 // --- LỚP QUẢN LÝ TRẠNG THÁI CỦA DANH SÁCH SẢN PHẨM ---
 @immutable
@@ -172,4 +197,70 @@ final brandsProvider = FutureProvider.autoDispose<List<Brand>>((ref) {
   return ref.watch(productRepositoryProvider).getAllBrands();
 });
 
+final wishlistProvider = StateNotifierProvider<WishlistNotifier, AsyncValue<List<Product>>>((ref) {
+  // Tự động tải wishlist khi provider được khởi tạo
+  return WishlistNotifier(ref)..loadWishlist();
+});
+
+class WishlistNotifier extends StateNotifier<AsyncValue<List<Product>>> {
+  final Ref _ref;
+  List<Product> _lastKnownWishlist = [];
+
+  WishlistNotifier(this._ref) : super(const AsyncValue.loading());
+
+
+
+  Future<void> loadWishlist() async {
+    state = const AsyncValue.loading();
+    try {
+      final wishlist = await _ref.read(wishlistRepositoryProvider).getMyWishlist();
+      _lastKnownWishlist = wishlist; // Lưu lại dữ liệu khi tải thành công
+      state = AsyncValue.data(wishlist);
+    } catch (e, st) {
+      state = AsyncValue.error(e, st);
+    }
+  }
+
+
+  Future<void> toggleWishlist(Product product) async {
+    print("--- Toggling Wishlist for product: ${product.name} ---");
+
+    final currentWishlist = state.valueOrNull ?? [];
+    final isAlreadyIn = currentWishlist.any((p) => p.id == product.id);
+    
+    print("Is product already in wishlist? $isAlreadyIn");
+
+    final previousState = state;
+    
+    // Cập nhật UI tạm thời
+    if (isAlreadyIn) {
+      state = AsyncValue.data(currentWishlist.where((p) => p.id != product.id).toList());
+    } else {
+      state = AsyncValue.data([...currentWishlist, product]);
+    }
+    
+    try {
+      if (isAlreadyIn) {
+        print("🚀 Sending API request: removeFromWishlist");
+        await _ref.read(wishlistRepositoryProvider).removeFromWishlist(product.id);
+        print("✅ API request removeFromWishlist successful");
+      } else {
+        print("🚀 Sending API request: addToWishlist");
+        await _ref.read(wishlistRepositoryProvider).addToWishlist(product.id);
+        print("✅ API request addToWishlist successful");
+      }
+      // Tải lại wishlist từ server để đảm bảo dữ liệu luôn đúng
+      await loadWishlist();
+
+    } catch (e, st) {
+      print("❌ API request FAILED: ${e.toString()}");
+      
+      // Nếu có lỗi, quay lại trạng thái cũ VÀ cập nhật state thành trạng thái lỗi
+      state = AsyncValue.error(e, st);
+      // Giữ lại dữ liệu cũ để UI không bị trống
+      state = previousState;
+    }
+  }
+
+}
 

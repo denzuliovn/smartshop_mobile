@@ -7,8 +7,8 @@ import 'package:smartshop_mobile/core/constants/api_constants.dart';
 import 'package:smartshop_mobile/core/mock_data/models.dart';
 import 'package:smartshop_mobile/features/products/application/product_providers.dart';
 import 'package:smartshop_mobile/features/cart/application/cart_provider.dart';
-import 'package:smartshop_mobile/features/products/presentation/widgets/review_list.dart'; // Vẫn import file này
-import 'package:collection/collection.dart';
+import 'package:smartshop_mobile/features/products/presentation/widgets/review_list.dart';
+import 'package:share_plus/share_plus.dart';
 
 class ProductDetailScreen extends ConsumerStatefulWidget {
   final String productId;
@@ -36,19 +36,13 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> with 
     _tabController.dispose();
     super.dispose();
   }
-  
-  // HÀM HELPER ĐỂ TẠO URL HÌNH ẢNH AN TOÀN
-  String _getImageUrl(String? imagePath) {
-    if (imagePath == null || imagePath.isEmpty) {
-      return 'https://via.placeholder.com/400';
-    }
-    if (imagePath.startsWith('http')) {
-      return imagePath;
-    }
-    // SỬA Ở ĐÂY
-    return "${ApiConstants.baseUrl}$imagePath";
-  }
 
+  String _getImageUrl(String? imagePath) {
+    if (imagePath == null || imagePath.isEmpty) return 'https://via.placeholder.com/400';
+    if (imagePath.startsWith('http')) return imagePath;
+    if (imagePath.startsWith('/')) return "${ApiConstants.baseUrl}$imagePath";
+    return "${ApiConstants.baseUrl}/img/$imagePath";
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -89,7 +83,27 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> with 
   }
   
   Widget _buildProductUI(BuildContext context, Product product) {
+    ref.listen<AsyncValue<List<Product>>>(wishlistProvider, (previous, next) {
+      // Nếu trạng thái mới là lỗi, và trạng thái trước đó không phải lỗi
+      if (next is AsyncError && previous is! AsyncError) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Lỗi Wishlist: ${next.error.toString()}'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    });
+
+    
     final formatCurrency = NumberFormat.currency(locale: 'vi_VN', symbol: '₫');
+    final wishlistState = ref.watch(wishlistProvider);
+    // Lấy danh sách sản phẩm từ trạng thái, nếu có
+    final wishlistProducts = wishlistState.valueOrNull ?? [];
+    // Kiểm tra xem sản phẩm hiện tại có trong danh sách không
+    final isInWishlist = wishlistProducts.any((p) => p.id == product.id);
+
+
 
     return Scaffold(
       body: NestedScrollView(
@@ -105,8 +119,28 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> with 
                 onPressed: () => context.pop(),
               ),
               actions: [
-                IconButton(onPressed: () {}, icon: const Icon(Icons.favorite_border)),
-                IconButton(onPressed: () {}, icon: const Icon(Icons.share_outlined)),
+                IconButton(
+                  onPressed: () {
+                    // Gọi toggleWishlist và không cần làm gì thêm
+                    ref.read(wishlistProvider.notifier).toggleWishlist(product);
+                  },
+                  icon: Icon(
+                    isInWishlist ? Icons.favorite : Icons.favorite_border,
+                    color: isInWishlist ? Colors.red : Colors.grey,
+                  ),
+                  tooltip: isInWishlist ? 'Xóa khỏi Yêu thích' : 'Thêm vào Yêu thích',
+                ),
+
+
+                IconButton(
+                  onPressed: () {
+                    // Logic chia sẻ
+                    final productUrl = "https://smartshop-react.onrender.com/products/${product.id}";
+                    Share.share('Xem sản phẩm tuyệt vời này nè: ${product.name}\n$productUrl');
+                  },
+                  icon: const Icon(Icons.share_outlined)
+                ),
+
               ],
               flexibleSpace: FlexibleSpaceBar(
                 background: Stack(
@@ -172,7 +206,30 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> with 
                           .headlineMedium
                           ?.copyWith(fontWeight: FontWeight.bold),
                     ),
+                    const SizedBox(height: 12),
+
+                    // --- THÔNG TIN MỚI ĐÃ ĐƯỢC THÊM ---
+                    Row(
+                      children: [
+                        Text(
+                          'SKU: ${product.id}',
+                          style: TextStyle(color: Colors.grey[600], fontSize: 14),
+                        ),
+                        const SizedBox(width: 4),
+                        Text('•', style: TextStyle(color: Colors.grey[600])),
+                        const SizedBox(width: 4),
+                        Text(
+                          'Kho: ${product.stock}',
+                          style: TextStyle(
+                            color: product.stock > 0 ? Colors.green.shade700 : Colors.red.shade700,
+                            fontSize: 14,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ],
+                    ),
                     const SizedBox(height: 16),
+
                     Row(
                       children: [
                         Text(
@@ -258,7 +315,10 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> with 
               padding: const EdgeInsets.all(20.0),
               child: Text(product.description, style: Theme.of(context).textTheme.bodyLarge?.copyWith(height: 1.6)),
             ),
-            ReviewList(productId: product.id),
+            SingleChildScrollView(
+              padding: const EdgeInsets.only(bottom: 20),
+              child: ReviewList(productId: product.id),
+            ),
           ],
         ),
       ),

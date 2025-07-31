@@ -4,9 +4,18 @@ import 'package:go_router/go_router.dart';
 import 'package:smartshop_mobile/features/products/application/search_provider.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:smartshop_mobile/core/utils/formatter.dart';
+import 'package:smartshop_mobile/core/constants/api_constants.dart'; // Thêm import
 
 class SearchScreen extends ConsumerWidget {
   const SearchScreen({super.key});
+  
+  // --- THÊM HÀM HELPER NÀY ---
+  String _getImageUrl(String? imagePath) {
+    if (imagePath == null || imagePath.isEmpty) return '';
+    if (imagePath.startsWith('http')) return imagePath;
+    if (imagePath.startsWith('/')) return "${ApiConstants.baseUrl}$imagePath";
+    return "${ApiConstants.baseUrl}/img/$imagePath";
+  }
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -34,7 +43,6 @@ class SearchScreen extends ConsumerWidget {
           },
         ),
       ),
-      // --- SỬA LẠI KHỐI NÀY ---
       body: switch (searchState) {
         SearchInitial() => const Center(child: Text('Nhập từ khóa để tìm kiếm (ít nhất 3 ký tự).')),
         SearchLoading() => const Center(child: CircularProgressIndicator()),
@@ -44,16 +52,18 @@ class SearchScreen extends ConsumerWidget {
                 itemCount: products.length,
                 itemBuilder: (context, index) {
                   final product = products[index];
+                  // --- SỬA LẠI CÁCH LẤY URL ---
+                  final imageUrl = _getImageUrl(product.images.isNotEmpty ? product.images[0] : null);
+
                   return ListTile(
-                    leading: product.images.isNotEmpty
-                      ? CachedNetworkImage(
-                          imageUrl: "http://10.0.2.2:4000${product.images[0]}",
-                          width: 50,
-                          height: 50,
-                          fit: BoxFit.cover,
-                          errorWidget: (context, url, error) => const Icon(Icons.image_not_supported),
-                        )
-                      : Container(width: 50, height: 50, color: Colors.grey[200], child: const Icon(Icons.image)),
+                    leading: CachedNetworkImage(
+                      imageUrl: imageUrl,
+                      width: 50,
+                      height: 50,
+                      fit: BoxFit.cover,
+                      errorWidget: (context, url, error) => const Icon(Icons.image_not_supported),
+                      placeholder: (context, url) => const Center(child: CircularProgressIndicator(strokeWidth: 2)),
+                    ),
                     title: Text(product.name),
                     subtitle: Text(AppFormatters.currency.format(product.price)),
                     onTap: () => context.push('/product/${product.id}'),
@@ -61,7 +71,6 @@ class SearchScreen extends ConsumerWidget {
                 },
               ),
         SearchError(message: final message) => Center(child: Text('Lỗi: $message')),
-        // --- THÊM TRƯỜNG HỢP MẶC ĐỊNH ---
         _ => const Center(child: Text('Trạng thái không xác định.')),
       },
     );

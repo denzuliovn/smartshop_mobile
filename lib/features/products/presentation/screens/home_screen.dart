@@ -20,7 +20,6 @@ class HomeScreen extends ConsumerWidget {
 
     return Scaffold(
       body: RefreshIndicator(
-        // --- SỬA LẠI HÀM NÀY ---
         onRefresh: () async {
           // Dùng await để đợi, không dùng return
           await Future.wait([

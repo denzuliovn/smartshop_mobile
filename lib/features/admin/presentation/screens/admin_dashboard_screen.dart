@@ -64,7 +64,7 @@ class AdminDashboardScreen extends ConsumerWidget {
   }
 
   // --- WIDGET ĐÃ ĐƯỢC THIẾT KẾ LẠI ---
-  Widget _buildStatCard(BuildContext context, String title, String value, IconData icon, {Color color = Colors.blue}) {
+  Widget _buildStatCard(BuildContext context, String title, String value, IconData icon, {Color color = const Color.fromARGB(255, 101, 15, 193)}) {
     return Card(
       elevation: 0,
       shape: RoundedRectangleBorder(

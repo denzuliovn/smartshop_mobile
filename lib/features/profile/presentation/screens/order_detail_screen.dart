@@ -11,7 +11,6 @@ class OrderDetailScreen extends ConsumerWidget {
   final String orderNumber;
   const OrderDetailScreen({super.key, required this.orderNumber});
 
-  // Hàm xử lý hủy đơn
   void _handleCancelOrder(BuildContext context, WidgetRef ref) async {
     final bool? confirm = await showDialog<bool>(
       context: context,
@@ -19,10 +18,7 @@ class OrderDetailScreen extends ConsumerWidget {
         title: const Text('Xác nhận hủy đơn hàng'),
         content: const Text('Bạn có chắc chắn muốn hủy đơn hàng này? Hành động này không thể hoàn tác.'),
         actions: [
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(false),
-            child: const Text('Không'),
-          ),
+          TextButton(onPressed: () => Navigator.of(ctx).pop(false), child: const Text('Không')),
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(true),
             child: const Text('Xác nhận hủy'),
@@ -33,7 +29,7 @@ class OrderDetailScreen extends ConsumerWidget {
     );
 
     if (confirm == true) {
-      final messenger = ScaffoldMessenger.of(context); // Lưu lại messenger
+      final messenger = ScaffoldMessenger.of(context);
       try {
         await ref.read(orderRepositoryProvider).cancelOrder(orderNumber);
         ref.refresh(myOrdersProvider);
@@ -49,6 +45,13 @@ class OrderDetailScreen extends ConsumerWidget {
     }
   }
 
+  String getImageUrl(String? imagePath) {
+    if (imagePath == null || imagePath.isEmpty) return '';
+    if (imagePath.startsWith('http')) return imagePath;
+    if (imagePath.startsWith('/')) return "${ApiConstants.baseUrl}$imagePath";
+    return "${ApiConstants.baseUrl}/img/$imagePath";
+  }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final orderAsyncValue = ref.watch(orderDetailProvider(orderNumber));
@@ -58,7 +61,9 @@ class OrderDetailScreen extends ConsumerWidget {
       body: orderAsyncValue.when(
         data: (order) {
           final canCancel = order.status == 'pending' || order.status == 'confirmed';
-          
+          // --- THÊM LẠI KHAI BÁO BIẾN BỊ THIẾU ---
+          final isDelivered = order.status == 'delivered';
+
           return ListView(
              padding: const EdgeInsets.all(16),
              children: [
@@ -68,12 +73,32 @@ class OrderDetailScreen extends ConsumerWidget {
                  Card(
                    margin: const EdgeInsets.only(bottom: 12),
                    child: ListTile(
-                     leading: item.product?.images.isNotEmpty ?? false
-                        ? CachedNetworkImage(imageUrl: "${ApiConstants.baseUrl}${item.product!.images[0]}", width: 50, errorWidget: (c,u,e) => const Icon(Icons.error))
-                        : const Icon(Icons.image_not_supported),
+                     leading: CachedNetworkImage(
+                        imageUrl: getImageUrl(item.product?.images.isNotEmpty ?? false ? item.product!.images[0] : null), 
+                        width: 50,
+                        height: 50,
+                        fit: BoxFit.cover,
+                        errorWidget: (c,u,e) => const Icon(Icons.image_not_supported, color: Colors.grey),
+                        placeholder: (c,u) => const Center(child: CircularProgressIndicator(strokeWidth: 2)),
+                      ),
                      title: Text(item.productName),
                      subtitle: Text('Số lượng: ${item.quantity}'),
-                     trailing: Text(AppFormatters.currency.format(item.priceAtOrder * item.quantity)),
+                     // --- SỬA LẠI LOGIC HIỂN THỊ NÚT ---
+                     trailing: isDelivered 
+                        ? TextButton(
+                            child: const Text('Đánh giá'),
+                            onPressed: () {
+                              // Đảm bảo item.product không null trước khi điều hướng
+                              if (item.product != null) {
+                                context.push('/product/${item.product!.id}/review');
+                              } else {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(content: Text('Không thể đánh giá sản phẩm đã bị xóa.'))
+                                );
+                              }
+                            },
+                          )
+                        : Text(AppFormatters.currency.format(item.priceAtOrder * item.quantity)),
                    ),
                  ),
                 const Divider(height: 32),

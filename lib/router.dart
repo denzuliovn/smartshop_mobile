@@ -28,6 +28,10 @@ import 'package:smartshop_mobile/features/admin/presentation/screens/admin_main_
 import 'package:smartshop_mobile/features/admin/presentation/screens/admin_orders_screen.dart';
 import 'package:smartshop_mobile/features/admin/presentation/screens/admin_products_screen.dart';
 import 'package:smartshop_mobile/features/admin/presentation/screens/admin_order_detail_screen.dart';
+import 'package:smartshop_mobile/features/admin/presentation/screens/admin_create_product_screen.dart';
+import 'package:smartshop_mobile/features/admin/presentation/screens/admin_edit_product_screen.dart';
+import 'package:smartshop_mobile/features/products/presentation/screens/write_review_screen.dart';
+import 'package:smartshop_mobile/features/profile/presentation/screens/wishlist_screen.dart';
 import 'dart:async';
 
 class GoRouterRefreshStream extends ChangeNotifier {
@@ -80,8 +84,20 @@ final routerProvider = Provider<GoRouter>((ref) {
               return AdminOrderDetailScreen(orderNumber: orderNumber);
             },
           ),
+          GoRoute(
+            path: '/admin/products/create',
+            builder: (context, state) => const AdminCreateProductScreen(),
+          ),
+          GoRoute(
+            path: '/admin/products/edit/:productId',
+            builder: (context, state) {
+              final productId = state.pathParameters['productId']!;
+              return AdminEditProductScreen(productId: productId);
+            },
+          ),
         ]
       ),
+
 
       
       // Các route không có BottomNavBar sẽ nằm ngoài ShellRoute
@@ -92,16 +108,26 @@ final routerProvider = Provider<GoRouter>((ref) {
           return ProductDetailScreen(productId: productId);
         },
       ),
-      GoRoute(path: '/products',
+      GoRoute(
+        path: '/products',
         builder: (context, state) {
+          // Lấy tất cả các tham số từ URL
           final isFeatured = state.uri.queryParameters['featured'] == 'true';
-          return ProductsScreen(isFeaturedOnly: isFeatured);
+          // final categoryId = state.uri.queryParameters['categoryId'];
+          // final brandId = state.uri.queryParameters['brandId'];
+          
+          return ProductsScreen(
+            isFeaturedOnly: isFeatured,
+            // categoryId: categoryId,
+            // brandId: brandId,
+          );
         },
       ),
+
       GoRoute(
         path: '/filter',
         pageBuilder: (context, state) {
-          // Lấy toàn bộ object filter được truyền qua
+          // --- SỬA LẠI CÁCH NHẬN `extra` ---
           final initialFilter = state.extra as ProductListFilter? ?? const ProductListFilter();
           return MaterialPage(
             child: FilterScreen(initialFilter: initialFilter),
@@ -109,6 +135,7 @@ final routerProvider = Provider<GoRouter>((ref) {
           );
         },
       ),
+
       GoRoute(path: '/search', builder: (context, state) => const SearchScreen()),
       GoRoute(path: '/login', builder: (context, state) => const LoginScreen()),
       GoRoute(path: '/register', builder: (context, state) => const RegisterScreen()),
@@ -145,6 +172,16 @@ final routerProvider = Provider<GoRouter>((ref) {
         path: '/settings',
         builder: (context, state) => const SettingsScreen(),
       ),
+      GoRoute(
+        path: '/product/:id/review',
+        builder: (context, state) {
+          final productId = state.pathParameters['id']!;
+          return WriteReviewScreen(productId: productId);
+        },
+      ),
+      GoRoute(path: '/wishlist', builder: (context, state) => const WishlistScreen()),
+
+
 
     ],
     redirect: (context, state) {
