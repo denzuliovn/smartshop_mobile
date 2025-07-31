@@ -6,12 +6,28 @@ import 'package:smartshop_mobile/core/mock_data/models.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:smartshop_mobile/features/admin/presentation/widgets/update_status_dialog.dart';
 import 'package:smartshop_mobile/features/admin/data/admin_repository.dart';
-
+import 'package:smartshop_mobile/core/constants/api_constants.dart';
 
 class AdminOrderDetailScreen extends ConsumerWidget {
   final String orderNumber;
   const AdminOrderDetailScreen({super.key, required this.orderNumber});
-
+  
+  // Hàm helper để tạo URL hình ảnh an toàn
+  String getImageUrl(String? imagePath) {
+    if (imagePath == null || imagePath.isEmpty) {
+      return ''; // Trả về chuỗi rỗng để errorWidget xử lý
+    }
+    // Nếu đã là URL đầy đủ (ví dụ: từ Firebase)
+    if (imagePath.startsWith('http')) {
+      return imagePath;
+    }
+    // Nếu là đường dẫn tương đối (bắt đầu bằng /)
+    if (imagePath.startsWith('/')) {
+      return "${ApiConstants.baseUrl}$imagePath";
+    }
+    // Mặc định, nếu chỉ là tên file
+    return "${ApiConstants.baseUrl}/img/$imagePath";
+  }
 
   void _showUpdateStatusDialog(BuildContext context, WidgetRef ref, Order order) async {
     final result = await showDialog<Map<String, String>>(
@@ -25,23 +41,27 @@ class AdminOrderDetailScreen extends ConsumerWidget {
     if (result != null) {
       final messenger = ScaffoldMessenger.of(context);
       try {
-        // Cập nhật trạng thái đơn hàng nếu có thay đổi
+        bool updated = false;
         if (result['orderStatus'] != order.status) {
           await ref.read(adminRepositoryProvider).updateOrderStatus(
             orderNumber: order.orderNumber,
             status: result['orderStatus']!,
           );
+          updated = true;
         }
-        // Cập nhật trạng thái thanh toán nếu có thay đổi
         if (result['paymentStatus'] != order.paymentStatus) {
            await ref.read(adminRepositoryProvider).updatePaymentStatus(
             orderNumber: order.orderNumber,
             paymentStatus: result['paymentStatus']!,
           );
+           updated = true;
         }
-        messenger.showSnackBar(const SnackBar(content: Text('Cập nhật thành công!'), backgroundColor: Colors.green));
-        ref.refresh(adminOrderDetailProvider(order.orderNumber)); // Làm mới dữ liệu
-        ref.refresh(allOrdersProvider); // Làm mới danh sách
+
+        if (updated) {
+          messenger.showSnackBar(const SnackBar(content: Text('Cập nhật thành công!'), backgroundColor: Colors.green));
+          ref.refresh(adminOrderDetailProvider(order.orderNumber));
+          ref.refresh(allOrdersProvider);
+        }
       } catch (e) {
         messenger.showSnackBar(SnackBar(content: Text('Lỗi: ${e.toString()}'), backgroundColor: Colors.red));
       }
@@ -63,7 +83,7 @@ class AdminOrderDetailScreen extends ConsumerWidget {
   }
 
   Widget _buildOrderDetail(BuildContext context, WidgetRef ref, Order order) {
-    final customerName = order.customerInfo?['fullName'] ?? '${order.user?.firstName} ${order.user?.lastName}';
+    final customerName = order.customerInfo?['fullName'] ?? '${order.user?.firstName ?? ''} ${order.user?.lastName ?? ''}'.trim();
     final customerPhone = order.customerInfo?['phone'] ?? 'N/A';
     final customerAddress = order.customerInfo?['address'] ?? 'N/A';
 
@@ -108,9 +128,10 @@ class AdminOrderDetailScreen extends ConsumerWidget {
               ListTile(
                 contentPadding: EdgeInsets.zero,
                 leading: CachedNetworkImage(
-                  imageUrl: "http://192.168.1.3:4000${item.product?.images.isNotEmpty ?? false ? item.product!.images[0] : ''}",
+                  imageUrl: getImageUrl(item.product?.images.isNotEmpty ?? false ? item.product!.images[0] : null),
                   width: 50, height: 50, fit: BoxFit.cover,
-                  errorWidget: (c, u, e) => const Icon(Icons.image_not_supported),
+                  errorWidget: (c, u, e) => Container(width: 50, height: 50, color: Colors.grey[200], child: const Icon(Icons.image_not_supported, color: Colors.grey)),
+                  placeholder: (c, u) => Container(width: 50, height: 50, color: Colors.grey[200]),
                 ),
                 title: Text(item.productName, style: const TextStyle(fontWeight: FontWeight.w500)),
                 subtitle: Text('SL: ${item.quantity}'),
@@ -125,6 +146,7 @@ class AdminOrderDetailScreen extends ConsumerWidget {
           icon: const Icon(Icons.sync),
           label: const Text('Cập nhật trạng thái'),
           onPressed: () => _showUpdateStatusDialog(context, ref, order),
+          style: ElevatedButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 12)),
         ),
       ],
     );
@@ -156,10 +178,18 @@ class AdminOrderDetailScreen extends ConsumerWidget {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 4.0),
       child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
           Text(label, style: const TextStyle(color: Colors.grey)),
-          Text(value, style: TextStyle(fontWeight: isBold ? FontWeight.bold : FontWeight.normal)),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Text(
+              value,
+              textAlign: TextAlign.right,
+              style: TextStyle(fontWeight: isBold ? FontWeight.bold : FontWeight.normal)
+            ),
+          ),
         ],
       ),
     );

@@ -4,6 +4,8 @@ import 'package:smartshop_mobile/core/api/graphql_client.dart';
 import 'package:smartshop_mobile/core/mock_data/models.dart';
 import 'package:smartshop_mobile/features/products/data/product_graphql.dart';
 import 'review_graphql.dart';
+import 'package:smartshop_mobile/core/mock_data/mock_data.dart';
+import 'dart:convert';
 
 final productRepositoryProvider = Provider<ProductRepository>((ref) {
   return ProductRepository(client: ref.watch(graphqlClientProvider));
@@ -112,57 +114,58 @@ class ProductRepository {
   Future<List<Product>> getProducts({
     required int limit, 
     required int offset,
-    String? orderBy, // Cho phép null
-    Map<String, dynamic>? condition, // Thêm condition
+    String? orderBy,
+    Map<String, dynamic>? condition,
   }) async {
+    final variables = {
+      'first': limit,
+      'offset': offset,
+      'orderBy': orderBy,
+      // Chỉ thêm condition vào variables nếu nó không null và không rỗng
+      if (condition != null && condition.isNotEmpty) 'condition': condition,
+    };
+
+    // --- THÊM LOG Ở ĐÂY ---
+    print("🚀 [ProductRepository] Calling API 'getProducts' with variables:");
+    print(jsonEncode(variables)); // In ra chuỗi JSON để xem chi tiết
+
     final options = QueryOptions(
       document: gql(ProductGraphQL.getProducts),
-      variables: {
-        'first': limit,
-        'offset': offset,
-        'orderBy': orderBy,
-        'condition': condition, // Truyền condition vào variables
-      },
+      variables: variables,
       fetchPolicy: FetchPolicy.networkOnly,
     );
 
     final result = await client.query(options);
+
     if (result.hasException) {
+      // In lỗi ra console để gỡ lỗi
+      print("❌ [ProductRepository] API Error: ${result.exception.toString()}");
       throw Exception(result.exception.toString());
     }
     
     final List<dynamic> productList = result.data?['products']?['nodes'] ?? [];
+    print("✅ [ProductRepository] Received ${productList.length} products.");
     return productList.map((json) => Product.fromJson(json)).toList();
   }
 
 
-  Future<List<Review>> getProductReviews(String productId) async {
-    final options = QueryOptions(
-      document: gql(ReviewGraphQL.getProductReviews),
-      variables: {'productId': productId},
-    );
-    final result = await client.query(options);
-    if (result.hasException) throw Exception(result.exception.toString());
 
-    final List<dynamic> list = result.data?['getProductReviews'] ?? [];
-    return list.map((json) => Review.fromJson(json)).toList();
+  Future<List<Review>> getProductReviews(String productId) async {
+    // TODO: Thay thế bằng lời gọi API thật sự
+    await Future.delayed(const Duration(milliseconds: 500)); // Giả lập độ trễ mạng
+    return mockReviews; 
   }
+
 
   Future<void> createReview({
     required String productId,
     required int rating,
     required String comment,
   }) async {
-    final options = MutationOptions(
-      document: gql(ReviewGraphQL.createReview),
-      variables: {'input': {
-        'productId': productId,
-        'rating': rating,
-        'comment': comment,
-      }},
-    );
-    final result = await client.mutate(options);
-    if (result.hasException) throw Exception(result.exception.toString());
+    // TODO: Thay thế bằng lời gọi API thật sự
+    await Future.delayed(const Duration(seconds: 1));
+    print('Đã tạo review cho sản phẩm $productId: $rating sao - "$comment"');
+    // throw Exception('API tạo review chưa được cài đặt'); // Có thể bật dòng này để test lỗi
   }
 
 

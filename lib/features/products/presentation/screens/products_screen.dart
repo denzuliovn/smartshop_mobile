@@ -15,17 +15,57 @@ class ProductsScreen extends ConsumerStatefulWidget {
 }
 
 class _ProductsScreenState extends ConsumerState<ProductsScreen> {
+  // --- STATE CỤC BỘ ---
   late ProductListFilter _filter;
-  // --- THÊM LẠI KHAI BÁO NÀY ---
   final ScrollController _scrollController = ScrollController();
+  List<Product> _products = [];
+  bool _isLoadingMore = false;
+  bool _canLoadMore = true;
 
   @override
   void initState() {
     super.initState();
+    // Khởi tạo bộ lọc ban đầu, không gọi ref ở đây
     _filter = ProductListFilter(
       condition: widget.isFeaturedOnly ? {'isFeatured': true} : {},
       orderBy: 'CREATED_DESC',
     );
+    _scrollController.addListener(_onScroll);
+  }
+
+  void _onScroll() {
+    if (_scrollController.position.pixels >= _scrollController.position.maxScrollExtent * 0.9 &&
+        !_isLoadingMore && _canLoadMore) {
+      _loadNextPage();
+    }
+  }
+
+  Future<void> _loadNextPage() async {
+    setState(() => _isLoadingMore = true);
+    
+    final nextPageFilter = _filter.copyWith(page: _filter.page + 1);
+    
+    try {
+      // Dùng ref.read để gọi một lần, không theo dõi
+      final newProducts = await ref.read(productsProvider(nextPageFilter).future);
+      if (mounted) {
+        setState(() {
+          _products.addAll(newProducts);
+          _filter = nextPageFilter; // Cập nhật page hiện tại
+          _canLoadMore = newProducts.length == _filter.limit;
+          _isLoadingMore = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) setState(() => _isLoadingMore = false);
+    }
+  }
+
+  Future<void> _refresh() async {
+    // Khi refresh, cập nhật _filter và để `ref.watch` trong build tự xử lý
+    setState(() {
+      _filter = _filter.copyWith(page: 1);
+    });
   }
 
   @override
@@ -36,6 +76,7 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // --- LẮNG NGHE PROVIDER Ở ĐÂY ---
     final productsAsync = ref.watch(productsProvider(_filter));
 
     return Scaffold(
@@ -61,11 +102,10 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
             icon: const Icon(Icons.filter_list),
             tooltip: "Lọc sản phẩm",
             onPressed: () async {
-              final newFilter = await context.push<ProductListFilter>(
+              final newFilter = await context.push<ProductListFilter?>(
                 '/filter',
                 extra: _filter,
               );
-              
               if (newFilter != null) {
                 setState(() {
                   _filter = newFilter;
@@ -75,22 +115,24 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
           ),
         ],
       ),
-      body: productsAsync.when(
-        data: (products) {
-          if (products.isEmpty) {
-            return RefreshIndicator(
-              onRefresh: () async => ref.refresh(productsProvider(_filter)),
-              child: ListView(children: const [Center(child: Text('Không có sản phẩm nào phù hợp.'))]),
-            );
-          }
-          return RefreshIndicator(
-            onRefresh: () async => ref.refresh(productsProvider(_filter)),
-            // --- SỬA LẠI LỜI GỌI HÀM NÀY ---
-            child: _buildGridView(products, false), // Tạm thời isLoadingMore là false
-          );
-        },
-        loading: () => const Center(child: CircularProgressIndicator()),
-        error: (err, stack) => Center(child: Text('Lỗi: $err')),
+      body: RefreshIndicator(
+        onRefresh: _refresh,
+        child: productsAsync.when(
+          data: (products) {
+            // Khi dữ liệu từ provider thay đổi (lần đầu hoặc sau khi lọc/sắp xếp)
+            // cập nhật lại danh sách sản phẩm cục bộ
+            if (_filter.page == 1) {
+              _products = products;
+              _canLoadMore = products.length == _filter.limit;
+            }
+            if (_products.isEmpty) {
+              return ListView(children: const [Center(child: Text('Không có sản phẩm nào phù hợp.'))]);
+            }
+            return _buildGridView(_products, _isLoadingMore);
+          },
+          loading: () => const Center(child: CircularProgressIndicator()),
+          error: (err, stack) => Center(child: Text('Lỗi: $err')),
+        ),
       ),
     );
   }
@@ -98,20 +140,17 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
   PopupMenuItem<String> _buildSortMenuItem(String value, String text, String? currentValue) {
     return PopupMenuItem<String>(
       value: value,
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
+      child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
           Text(text),
-          if (value == currentValue)
-            const Icon(Icons.check, color: Colors.blue),
+          if (value == currentValue) const Icon(Icons.check, color: Colors.blue),
         ],
       ),
     );
   }
 
-  Widget _buildGridView(List<dynamic> products, bool isLoadingMore) {
+  Widget _buildGridView(List<Product> products, bool isLoadingMore) {
     return GridView.builder(
-      controller: _scrollController, // Sử dụng scroll controller
+      controller: _scrollController,
       padding: const EdgeInsets.all(16),
       gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
         crossAxisCount: 2,

@@ -10,6 +10,10 @@ dependencies:
   flutter:
     sdk: flutter
 
+
+  # shared dependencies
+  share_plus: ^9.0.0
+
   # UI & Tiện ích
   cupertino_icons: ^1.0.8
   google_fonts: ^6.2.1
@@ -28,6 +32,9 @@ dependencies:
   # Lưu trữ bảo mật
   # Dùng để lưu trữ token và thông tin người dùng
   flutter_secure_storage: ^9.2.2 
+  image_picker: ^1.1.2
+  http: ^1.2.1
+  http_parser: ^4.0.2
 
   image_picker: ^1.1.2
   http: ^1.2.1 # Cần thiết để tạo multipart file

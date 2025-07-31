@@ -109,65 +109,19 @@ final mockCartItems = [
 ];
 
 
-// --- Orders ---
-// final mockOrders = [
-//   Order(
-//     id: 'order1',
-//     orderNumber: 'SS20240720001',
-//     orderDate: DateTime.now().subtract(const Duration(days: 3)),
-//     status: 'delivered',
-//     items: [
-//       OrderItem(
-//         id: 'item1',
-//         product: mockProducts[0],
-//         productName: mockProducts[0].name,   // Thêm vào
-//         productSku: 'IPH15PRO001',           // Thêm vào
-//         quantity: 1,
-//         priceAtOrder: 28990000,
-//       ),
-//     ],
-//     totalAmount: 28990000,
-//   ),
-//   Order(
-//     id: 'order2',
-//     orderNumber: 'SS20240718005',
-//     orderDate: DateTime.now().subtract(const Duration(days: 5)),
-//     status: 'shipping',
-//     items: [
-//       OrderItem(
-//         id: 'item2',
-//         product: mockProducts[3],
-//         productName: mockProducts[3].name,   // Thêm vào
-//         productSku: 'SONYWH1000XM5',         // Thêm vào
-//         quantity: 1,
-//         priceAtOrder: 7990000,
-//       ),
-//       OrderItem(
-//         id: 'item3',
-//         product: mockProducts[1],
-//         productName: mockProducts[1].name,   // Thêm vào
-//         productSku: 'SAM24ULTRA001',         // Thêm vào
-//         quantity: 1,
-//         priceAtOrder: 30490000,
-//       ),
-//     ],
-//     totalAmount: 38480000,
-//   ),
-//   Order(
-//     id: 'order3',
-//     orderNumber: 'SS20240715002',
-//     orderDate: DateTime.now().subtract(const Duration(days: 8)),
-//     status: 'cancelled',
-//     items: [
-//       OrderItem(
-//         id: 'item4',
-//         product: mockProducts[2],
-//         productName: mockProducts[2].name,  // Thêm vào
-//         productSku: 'MBP14M3001',          // Thêm vào
-//         quantity: 1,
-//         priceAtOrder: 52490000,
-//       ),
-//     ],
-//     totalAmount: 52490000,
-//   ),
-// ];
+final mockReviews = [
+  Review(
+    id: 'review1',
+    user: mockUser,
+    rating: 5,
+    comment: 'Sản phẩm tuyệt vời! Màn hình rất đẹp và hiệu năng mượt mà. Giao hàng nhanh chóng.',
+    createdAt: DateTime.now().subtract(const Duration(days: 2)),
+  ),
+  Review(
+    id: 'review2',
+    user: User(id: 'user2', username: 'thanh', email: 'thanh@email.com', firstName: 'Minh', lastName: 'Thanh', role: 'customer', avatarUrl: 'https://i.pravatar.cc/150?u=user2'),
+    rating: 4,
+    comment: 'Thiết kế sang trọng, pin dùng ổn. Camera chụp ảnh rất nét. Sẽ tiếp tục ủng hộ shop.',
+    createdAt: DateTime.now().subtract(const Duration(days: 5)),
+  ),
+];
