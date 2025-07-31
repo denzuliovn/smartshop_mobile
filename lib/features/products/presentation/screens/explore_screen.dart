@@ -104,7 +104,7 @@ class ExploreScreen extends ConsumerWidget {
                     final brand = brands[index];
                     return Card(
                       child: InkWell(
-                        onTap: () => context.push('/products?brandId=${brand.id}'),
+                        onTap: () => context.push('/products?brandId=${brand.id}&brandName=${Uri.encodeComponent(brand.name)}'),
                         child: SizedBox(
                           width: 120,
                           child: Center(child: Icon(IconMapper.getBrandIcon(brand.name), size: 40, color: Colors.grey[800])),
