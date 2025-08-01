@@ -112,7 +112,9 @@ class Product {
     required this.id, required this.name, required this.description,
     required this.price, this.originalPrice, required this.images,
     required this.stock, this.isFeatured = false, this.isActive = true,
-    this.category, this.brand, this.averageRating = 4.5, this.totalReviews = 99,
+    this.category, this.brand,
+    required this.averageRating, 
+    required this.totalReviews,  
   });
 
   factory Product.fromJson(Map<String, dynamic> json) {
@@ -131,8 +133,8 @@ class Product {
       isActive: json['isActive'] ?? true,
       category: json['category'] != null ? Category.fromJson(json['category']) : null,
       brand: json['brand'] != null ? Brand.fromJson(json['brand']) : null,
-      averageRating: (json['averageRating'] as num? ?? 4.5).toDouble(),
-      totalReviews: (json['totalReviews'] as num? ?? 99).toInt(),
+      averageRating: (json['averageRating'] as num? ?? 0).toDouble(), // Sửa ở đây
+      totalReviews: (json['totalReviews'] as num? ?? 0).toInt(),
     );
   }
 }

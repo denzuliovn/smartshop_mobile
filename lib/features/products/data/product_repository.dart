@@ -25,17 +25,19 @@ class ProductRepository {
     final featuredResult = await client.query(featuredOptions);
     if (featuredResult.hasException) {
       // Nếu có lỗi, vẫn thử bước tiếp theo thay vì báo lỗi ngay
-      print("Lỗi khi lấy featuredProducts: ${featuredResult.exception.toString()}");
+      print(
+          "Lỗi khi lấy featuredProducts: ${featuredResult.exception.toString()}");
     }
 
-    final List<dynamic> featuredList = featuredResult.data?['featuredProducts'] ?? [];
+    final List<dynamic> featuredList =
+        featuredResult.data?['featuredProducts'] ?? [];
 
     // 2. Nếu có sản phẩm nổi bật, trả về ngay
     if (featuredList.isNotEmpty) {
       print("✅ Đã tìm thấy ${featuredList.length} sản phẩm nổi bật.");
       return featuredList.map((json) => Product.fromJson(json)).toList();
     }
-    
+
     // 3. Nếu không có sản phẩm nổi bật, lấy 8 sản phẩm mới nhất để thay thế
     print("ℹ️ Không có sản phẩm nổi bật, đang lấy sản phẩm mới nhất...");
     final latestOptions = QueryOptions(
@@ -48,8 +50,9 @@ class ProductRepository {
     if (latestResult.hasException) {
       throw Exception(latestResult.exception.toString());
     }
-    
-    final List<dynamic> latestList = latestResult.data?['products']?['nodes'] ?? [];
+
+    final List<dynamic> latestList =
+        latestResult.data?['products']?['nodes'] ?? [];
     print("✅ Đã lấy được ${latestList.length} sản phẩm mới nhất để thay thế.");
     return latestList.map((json) => Product.fromJson(json)).toList();
   }
@@ -66,11 +69,13 @@ class ProductRepository {
     if (productJson == null) throw Exception('Không tìm thấy sản phẩm');
     return Product.fromJson(productJson);
   }
+
   // --- HÀM MỚI 1 ---
   Future<List<Category>> getAllCategories() async {
     final options = QueryOptions(
       document: gql(ProductGraphQL.getAllCategories),
-      fetchPolicy: FetchPolicy.networkOnly, // Ưu tiên cache vì danh mục ít thay đổi
+      fetchPolicy:
+          FetchPolicy.networkOnly, // Ưu tiên cache vì danh mục ít thay đổi
     );
     final result = await client.query(options);
     if (result.hasException) throw Exception(result.exception.toString());
@@ -112,7 +117,7 @@ class ProductRepository {
   }
 
   Future<List<Product>> getProducts({
-    required int limit, 
+    required int limit,
     required int offset,
     String? orderBy,
     Map<String, dynamic>? condition,
@@ -142,31 +147,40 @@ class ProductRepository {
       print("❌ [ProductRepository] API Error: ${result.exception.toString()}");
       throw Exception(result.exception.toString());
     }
-    
+
     final List<dynamic> productList = result.data?['products']?['nodes'] ?? [];
     print("✅ [ProductRepository] Received ${productList.length} products.");
     return productList.map((json) => Product.fromJson(json)).toList();
   }
 
-
-
   Future<List<Review>> getProductReviews(String productId) async {
-    // TODO: Thay thế bằng lời gọi API thật sự
-    await Future.delayed(const Duration(milliseconds: 500)); // Giả lập độ trễ mạng
-    return mockReviews; 
+    final options = QueryOptions(
+      document: gql(ReviewGraphQL.getProductReviews),
+      variables: {'productId': productId},
+      fetchPolicy: FetchPolicy.networkOnly,
+    );
+    final result = await client.query(options);
+    if (result.hasException) throw Exception(result.exception.toString());
+    final List<dynamic> list = result.data?['getProductReviews'] ?? [];
+    return list.map((json) => Review.fromJson(json)).toList();
   }
-
 
   Future<void> createReview({
     required String productId,
     required int rating,
     required String comment,
   }) async {
-    // TODO: Thay thế bằng lời gọi API thật sự
-    await Future.delayed(const Duration(seconds: 1));
-    print('Đã tạo review cho sản phẩm $productId: $rating sao - "$comment"');
-    // throw Exception('API tạo review chưa được cài đặt'); // Có thể bật dòng này để test lỗi
+    final options = MutationOptions(
+      document: gql(ReviewGraphQL.createReview),
+      variables: {
+        'input': {
+          'productId': productId,
+          'rating': rating,
+          'comment': comment,
+        }
+      },
+    );
+    final result = await client.mutate(options);
+    if (result.hasException) throw Exception(result.exception.toString());
   }
-
-
 }

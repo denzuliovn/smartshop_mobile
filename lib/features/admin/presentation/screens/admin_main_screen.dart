@@ -20,6 +20,7 @@ class AdminMainScreen extends StatelessWidget {
             ListTile(title: const Text('Dashboard'), onTap: () => context.go('/admin')),
             ListTile(title: const Text('Quản lý Đơn hàng'), onTap: () => context.go('/admin/orders')),
             ListTile(title: const Text('Quản lý Sản phẩm'), onTap: () => context.go('/admin/products')),
+            ListTile(title: const Text('Danh mục & Thương hiệu'), onTap: () => context.go('/admin/taxonomy')),
             const Divider(),
             ListTile(title: const Text('Quay lại trang KH'), onTap: () => context.go('/')),
           ],

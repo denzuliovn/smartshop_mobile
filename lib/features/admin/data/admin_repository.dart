@@ -15,6 +15,52 @@ class AdminRepository {
   final GraphQLClient client;
   AdminRepository({required this.client});
 
+  Future<Category> updateCategory(String id, Map<String, dynamic> data) async {
+    const String mutation = r'''
+      mutation UpdateCategory($id: ID!, $input: CategoryInput!) {
+        updateCategory(id: $id, input: $input) { _id name }
+      }
+    ''';
+    final options = MutationOptions(document: gql(mutation), variables: {'id': id, 'input': data});
+    final result = await client.mutate(options);
+    if (result.hasException) throw Exception(result.exception.toString());
+    return Category.fromJson(result.data!['updateCategory']);
+  }
+
+  Future<void> deleteCategory(String id) async {
+    const String mutation = r'''
+      mutation DeleteCategory($id: ID!) {
+        deleteCategory(id: $id)
+      }
+    ''';
+    final options = MutationOptions(document: gql(mutation), variables: {'id': id});
+    final result = await client.mutate(options);
+    if (result.hasException) throw Exception(result.exception.toString());
+  }
+
+  Future<Brand> updateBrand(String id, Map<String, dynamic> data) async {
+    const String mutation = r'''
+      mutation UpdateBrand($id: ID!, $input: BrandInput!) {
+        updateBrand(id: $id, input: $input) { _id name }
+      }
+    ''';
+    final options = MutationOptions(document: gql(mutation), variables: {'id': id, 'input': data});
+    final result = await client.mutate(options);
+    if (result.hasException) throw Exception(result.exception.toString());
+    return Brand.fromJson(result.data!['updateBrand']);
+  }
+
+  Future<void> deleteBrand(String id) async {
+    const String mutation = r'''
+      mutation DeleteBrand($id: ID!) {
+        deleteBrand(id: $id)
+      }
+    ''';
+    final options = MutationOptions(document: gql(mutation), variables: {'id': id});
+    final result = await client.mutate(options);
+    if (result.hasException) throw Exception(result.exception.toString());
+  }
+
   Future<Category> createCategory(String name) async {
     const String mutation = r'''
       mutation CreateCategory($input: CategoryInput!) {

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:smartshop_mobile/features/products/data/product_repository.dart';
+import 'package:smartshop_mobile/features/products/application/product_providers.dart';
 
 class WriteReviewScreen extends ConsumerStatefulWidget {
   final String productId;
@@ -26,6 +27,10 @@ class _WriteReviewScreenState extends ConsumerState<WriteReviewScreen> {
         rating: _rating,
         comment: _commentController.text,
       );
+    // Làm mới danh sách review của sản phẩm này
+    ref.refresh(productReviewsProvider(widget.productId));
+    // Làm mới lại chi tiết sản phẩm để cập nhật số sao
+    ref.refresh(productDetailProvider(widget.productId));
       Navigator.of(context).pop(true); // Trả về true để báo hiệu đã submit thành công
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Lỗi: $e')));

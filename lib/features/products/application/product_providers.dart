@@ -56,6 +56,10 @@ final filteredProductsProvider = FutureProvider.autoDispose<List<Product>>((ref)
   );
 });
 
+// Review 
+final productReviewsProvider = FutureProvider.autoDispose.family<List<Review>, String>((ref, productId) {
+  return ref.watch(productRepositoryProvider).getProductReviews(productId);
+});
 
 // --- LỚP QUẢN LÝ TRẠNG THÁI CỦA DANH SÁCH SẢN PHẨM ---
 @immutable
