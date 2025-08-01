@@ -1,4 +1,4 @@
-// FILE PATH: lib/features/products/presentation/screens/search_screen.dart
+
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -8,12 +8,13 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:smartshop_mobile/core/utils/formatter.dart';
 import 'package:smartshop_mobile/core/constants/api_constants.dart';
 
-class SearchScreen extends ConsumerStatefulWidget {
-  const SearchScreen({super.key});
+// class SearchScreen extends ConsumerStatefulWidget {
+//   const SearchScreen({super.key});
 
-  @override
-  ConsumerState<SearchScreen> createState() => _SearchScreenState();
-}
+//   @override
+//   ConsumerState<SearchScreen> createState() => _SearchScreenState();
+// }
+
 
 class _SearchScreenState extends ConsumerState<SearchScreen> {
   late final TextEditingController _searchController;
@@ -41,12 +42,14 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
     super.dispose();
   }
 
-  String _getImageUrl(String? imagePath) {
-    if (imagePath == null || imagePath.isEmpty) return '';
-    if (imagePath.startsWith('http')) return imagePath;
-    if (imagePath.startsWith('/')) return "${ApiConstants.baseUrl}$imagePath";
-    return "${ApiConstants.baseUrl}/img/$imagePath";
-  }
+
+//   String _getImageUrl(String? imagePath) {
+//     if (imagePath == null || imagePath.isEmpty) return '';
+//     if (imagePath.startsWith('http')) return imagePath;
+//     if (imagePath.startsWith('/')) return "${ApiConstants.baseUrl}$imagePath";
+//     return "${ApiConstants.baseUrl}/img/$imagePath";
+//   }
+
 
   @override
   Widget build(BuildContext context) {

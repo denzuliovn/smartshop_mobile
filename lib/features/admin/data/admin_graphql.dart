@@ -33,6 +33,8 @@ class AdminGraphQL {
           }
           user {
             email
+            firstName
+            lastName
           }
           items {
             _id

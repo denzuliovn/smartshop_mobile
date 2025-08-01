@@ -48,7 +48,14 @@ class AdminOrdersScreen extends ConsumerWidget {
       case 'cancelled': statusColor = Colors.red; break;
       default: statusColor = Colors.blue;
     }
-    
+
+    // ===== LOGIC LẤY TÊN KHÁCH HÀNG MỚI =====
+    // Ưu tiên lấy tên từ thông tin user, nếu không có thì lấy từ thông tin lúc checkout.
+    final customerName = (order.user != null && order.user!.firstName.isNotEmpty)
+        ? '${order.user!.firstName} ${order.user!.lastName}'
+        : order.customerInfo?['fullName'] ?? 'Khách vãng lai';
+    // ==========================================
+
     return Card(
       margin: const EdgeInsets.symmetric(vertical: 6.0, horizontal: 8.0),
       child: ListTile(
@@ -64,7 +71,8 @@ class AdminOrdersScreen extends ConsumerWidget {
         subtitle: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('Khách hàng: ${order.items.isNotEmpty ? "Khách hàng A" : "N/A"}'), // Placeholder
+            // ===== SỬA LẠI DÒNG NÀY =====
+            Text('Khách hàng: $customerName'), 
             Text('Ngày đặt: ${AppFormatters.formatDate(order.orderDate)}'),
           ],
         ),

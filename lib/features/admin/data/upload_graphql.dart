@@ -1,6 +1,6 @@
 class UploadGraphQL {
   static const String uploadProductImages = r'''
-    mutation UploadProductImages($productId: ID!, $files: [Upload!]!) {
+    mutation UploadProductImages($productId: ID!, $files: [File!]!) {
       uploadProductImages(productId: $productId, files: $files) {
         success
         message

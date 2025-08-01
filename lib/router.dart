@@ -37,6 +37,9 @@ import 'package:smartshop_mobile/core/mock_data/models.dart';
 import 'package:smartshop_mobile/features/admin/presentation/screens/admin_product_detail_screen.dart';
 import 'package:smartshop_mobile/features/products/presentation/screens/all_categories_screen.dart';
 import 'package:smartshop_mobile/features/products/presentation/screens/all_brands_screen.dart';
+import 'package:smartshop_mobile/features/admin/presentation/screens/admin_edit_category_screen.dart';
+import 'package:smartshop_mobile/features/admin/presentation/screens/admin_taxonomy_screen.dart';
+import 'package:smartshop_mobile/features/admin/presentation/screens/admin_edit_brand_screen.dart';
 import 'dart:async';
 
 class GoRouterRefreshStream extends ChangeNotifier {
@@ -79,6 +82,21 @@ final routerProvider = Provider<GoRouter>((ref) {
           return AdminMainScreen(child: child);
         },
         routes: [
+          GoRoute(path: '/admin/taxonomy', builder: (context, state) => const AdminTaxonomyScreen()),
+          GoRoute(
+            path: '/admin/categories/edit', // Hoặc dùng /:id nếu muốn
+            builder: (context, state) {
+              final category = state.extra as Category;
+              return AdminEditCategoryScreen(category: category);
+            },
+          ),
+          GoRoute(
+            path: '/admin/brands/edit',
+            builder: (context, state) {
+              final brand = state.extra as Brand;
+              return AdminEditBrandScreen(brand: brand);
+            },
+          ),
           GoRoute(path: '/admin', builder: (context, state) => const AdminDashboardScreen()),
           GoRoute(path: '/admin/orders', builder: (context, state) => const AdminOrdersScreen()),
           GoRoute(path: '/admin/products', builder: (context, state) => const AdminProductsScreen()),
@@ -162,7 +180,7 @@ final routerProvider = Provider<GoRouter>((ref) {
         path: '/categories',
         builder: (context, state) => const AllCategoriesScreen(),
       ),
-      GoRoute(path: '/search', builder: (context, state) => const SearchScreen()),
+      // GoRoute(path: '/search', builder: (context, state) => const SearchScreen()),
       GoRoute(path: '/login', builder: (context, state) => const LoginScreen()),
       GoRoute(path: '/register', builder: (context, state) => const RegisterScreen()),
       GoRoute(path: '/forgot-password', builder: (context, state) => const ForgotPasswordScreen()),

@@ -20,6 +20,7 @@ class SearchError extends SearchState {
   SearchError(this.message);
 }
 
+
 // 2. Tạo StateNotifier
 class SearchNotifier extends StateNotifier<SearchState> {
   final Ref _ref;
