@@ -162,7 +162,7 @@ final routerProvider = Provider<GoRouter>((ref) {
         path: '/categories',
         builder: (context, state) => const AllCategoriesScreen(),
       ),
-      GoRoute(path: '/search', builder: (context, state) => const SearchScreen()),
+      // GoRoute(path: '/search', builder: (context, state) => const SearchScreen()),
       GoRoute(path: '/login', builder: (context, state) => const LoginScreen()),
       GoRoute(path: '/register', builder: (context, state) => const RegisterScreen()),
       GoRoute(path: '/forgot-password', builder: (context, state) => const ForgotPasswordScreen()),

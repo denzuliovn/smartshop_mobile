@@ -70,7 +70,7 @@ class ProductRepository {
   Future<List<Category>> getAllCategories() async {
     final options = QueryOptions(
       document: gql(ProductGraphQL.getAllCategories),
-      fetchPolicy: FetchPolicy.cacheFirst, // Ưu tiên cache vì danh mục ít thay đổi
+      fetchPolicy: FetchPolicy.networkOnly, // Ưu tiên cache vì danh mục ít thay đổi
     );
     final result = await client.query(options);
     if (result.hasException) throw Exception(result.exception.toString());
@@ -83,7 +83,7 @@ class ProductRepository {
   Future<List<Brand>> getAllBrands() async {
     final options = QueryOptions(
       document: gql(ProductGraphQL.getAllBrands),
-      fetchPolicy: FetchPolicy.cacheFirst,
+      fetchPolicy: FetchPolicy.networkOnly,
     );
     final result = await client.query(options);
     if (result.hasException) throw Exception(result.exception.toString());

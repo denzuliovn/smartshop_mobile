@@ -15,6 +15,42 @@ class AdminRepository {
   final GraphQLClient client;
   AdminRepository({required this.client});
 
+  Future<Category> createCategory(String name) async {
+    const String mutation = r'''
+      mutation CreateCategory($input: CategoryInput!) {
+        createCategory(input: $input) {
+          _id
+          name
+        }
+      }
+    ''';
+    final options = MutationOptions(
+      document: gql(mutation),
+      variables: {'input': {'name': name}},
+    );
+    final result = await client.mutate(options);
+    if (result.hasException) throw Exception(result.exception.toString());
+    return Category.fromJson(result.data!['createCategory']);
+  }
+
+  Future<Brand> createBrand(String name) async {
+    const String mutation = r'''
+      mutation CreateBrand($input: BrandInput!) {
+        createBrand(input: $input) {
+          _id
+          name
+        }
+      }
+    ''';
+    final options = MutationOptions(
+      document: gql(mutation),
+      variables: {'input': {'name': name}},
+    );
+    final result = await client.mutate(options);
+    if (result.hasException) throw Exception(result.exception.toString());
+    return Brand.fromJson(result.data!['createBrand']);
+  }
+
   Future<void> bulkUpdateProducts({required List<String> ids, double? price, int? stock}) async {
     final String mutation = r'''
       mutation BulkUpdate($input: BulkUpdateInput!) {
@@ -39,7 +75,7 @@ class AdminRepository {
     );
     final options = MutationOptions(
       document: gql(r'''
-        mutation ImportProducts($file: Upload!) {
+        mutation ImportProducts($file: File!) {
           importProducts(file: $file) {
             success message created updated errors
           }
