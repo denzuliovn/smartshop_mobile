@@ -1,3 +1,8 @@
 {
-    "java.configuration.updateBuildConfiguration": "interactive"
+    "java.configuration.updateBuildConfiguration": "interactive",
+    "files.associations": {
+        "*.dbclient-js": "javascript",
+        "iostream": "cpp"
+    },
+    "cmake.sourceDirectory": "D:/My project/mobile_project/smartshop_mobile/windows"
 }
