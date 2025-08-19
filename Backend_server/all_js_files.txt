@@ -1,0 +1,4963 @@
+================================================================================
+// FILE PATH: check-db.js
+================================================================================
+
+// File: server/test-orderitems.js - Quick test script để check database functions
+
+import { connectDB } from "./data/init.js";
+import { db } from "./data/mongoRepo.js";
+
+const testOrderItems = async () => {
+  try {
+    console.log('🔍 Testing OrderItems functionality...\n');
+    
+    // Connect to database
+    await connectDB();
+    console.log('✅ Database connected\n');
+    
+    // Check db object structure
+    console.log('🔍 DB Object Structure:');
+    console.log('Available keys:', Object.keys(db));
+    console.log('');
+    
+    // Check orders object
+    if (db.orders) {
+      console.log('✅ db.orders exists');
+      console.log('Orders methods:', Object.keys(db.orders));
+    } else {
+      console.error('❌ db.orders missing!');
+    }
+    console.log('');
+    
+    // Check orderItems object
+    if (db.orderItems) {
+      console.log('✅ db.orderItems exists');
+      console.log('OrderItems methods:', Object.keys(db.orderItems));
+      
+      // Test getByOrderId method
+      if (db.orderItems.getByOrderId) {
+        console.log('✅ db.orderItems.getByOrderId exists');
+        
+        // Try to call it with a test ObjectId
+        try {
+          const testOrderId = '676f1234567890abcdef1234'; // dummy ObjectId
+          console.log(`🔍 Testing getByOrderId with dummy ID: ${testOrderId}`);
+          const result = await db.orderItems.getByOrderId(testOrderId);
+          console.log(`✅ getByOrderId returned: ${result.length} items (expected 0 for dummy ID)`);
+        } catch (error) {
+          console.error('❌ Error testing getByOrderId:', error.message);
+        }
+      } else {
+        console.error('❌ db.orderItems.getByOrderId missing!');
+      }
+    } else {
+      console.error('❌ db.orderItems missing!');
+    }
+    console.log('');
+    
+    // Test with real order if exists
+    console.log('🔍 Looking for real orders in database...');
+    try {
+      // Find first order to test with
+      const { Order } = await import("./data/models/index.js");
+      const firstOrder = await Order.findOne().limit(1);
+      
+      if (firstOrder) {
+        console.log(`✅ Found real order: ${firstOrder.orderNumber} (ID: ${firstOrder._id})`);
+        
+        // Test getByOrderId with real order
+        const realItems = await db.orderItems.getByOrderId(firstOrder._id);
+        console.log(`✅ Real order has ${realItems.length} items`);
+        
+        if (realItems.length > 0) {
+          console.log('📦 Sample order item:');
+          console.log('  - Product Name:', realItems[0].productName);
+          console.log('  - Quantity:', realItems[0].quantity);
+          console.log('  - Unit Price:', realItems[0].unitPrice);
+        }
+      } else {
+        console.log('ℹ️ No orders found in database');
+      }
+    } catch (error) {
+      console.error('❌ Error testing with real order:', error.message);
+    }
+    
+    console.log('\n🎉 Test completed!');
+    process.exit(0);
+    
+  } catch (error) {
+    console.error('❌ Test failed:', error);
+    process.exit(1);
+  }
+};
+
+// Run test
+testOrderItems();
+
+================================================================================
+// FILE PATH: config.js
+================================================================================
+
+const source = "mock"; // "test" / "mongodb"
+
+import { db } from './data/mongoRepo.js';
+
+export { db };
+
+================================================================================
+// FILE PATH: index.js
+================================================================================
+
+// File: server/index.js - ORIGINAL STRUCTURE WITH DEBUG
+
+import { createYoga } from "graphql-yoga";
+import { schema } from "./graphql/schema.js";
+import { useGraphQLMiddleware } from "@envelop/graphql-middleware";
+import { permissions } from "./permissions.js";
+import { db } from "./config.js";
+import express from "express";
+import path from "path";
+import { fileURLToPath } from "url";
+import { dirname } from "path";
+import fs from "fs";
+import dotenv from "dotenv";
+import jwt from "jsonwebtoken";
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+
+// Load environment variables
+dotenv.config();
+
+import { initDatabase } from "./data/init.js";
+
+// Initialize database connection
+await initDatabase();
+
+// ✅ DEBUG: Log db object structure
+console.log('🔍 DEBUG: Checking db object structure...');
+console.log('🔍 Available db keys:', Object.keys(db));
+
+if (db.orders) {
+  console.log('✅ db.orders exists');
+  console.log('🔍 db.orders methods:', Object.keys(db.orders));
+} else {
+  console.error('❌ db.orders is missing!');
+}
+
+if (db.orderItems) {
+  console.log('✅ db.orderItems exists');
+  console.log('🔍 db.orderItems methods:', Object.keys(db.orderItems));
+} else {
+  console.error('❌ db.orderItems is missing!');
+}
+
+const signingKey = process.env.JWT_SECRET;
+
+const yoga = createYoga({ 
+  schema,
+  graphqlEndpoint: "/",
+  plugins: [useGraphQLMiddleware([permissions])],
+  context: async ({ request }) => {
+    const authorization = request.headers.get("authorization") || "";
+    let user = null;
+
+    if (authorization.startsWith("Bearer ")) {
+      const token = authorization.substring(7, authorization.length);
+      
+      try {
+        const decoded = jwt.verify(token, signingKey);
+        user = decoded;
+      } catch (error) {
+        console.log("JWT verification failed:", error.message);
+      }
+    }
+
+    // ✅ DEBUG: Log context creation for order queries
+    const body = await request.text();
+    if (body && body.includes('getMyOrder')) {
+      console.log('🔍 Creating context for getMyOrder query');
+      console.log('🔍 User:', user ? `${user.username} (${user.id})` : 'Not authenticated');
+      console.log('🔍 DB object keys:', Object.keys(db));
+      console.log('🔍 db.orders available:', !!db.orders);
+      console.log('🔍 db.orderItems available:', !!db.orderItems);
+      console.log('🔍 db.orderItems.getByOrderId available:', !!db.orderItems?.getByOrderId);
+    }
+
+    return {
+      db: db,
+      user: user,
+      secret: request.headers.get("secret"),
+    };
+  },
+  formatError: (error) => {
+    console.error('❌ GraphQL Error Details:');
+    console.error('Message:', error.message);
+    console.error('Path:', error.path);
+    console.error('Locations:', error.locations);
+    console.error('Extensions:', error.extensions);
+    console.error('Original Error:', error.originalError);
+    console.error('Stack:', error.stack);
+    
+    // ✅ DEBUG: Return more detailed error info in development
+    if (process.env.NODE_ENV !== 'production') {
+      return {
+        message: error.message,
+        locations: error.locations,
+        path: error.path,
+        extensions: {
+          code: error.extensions?.code,
+          exception: {
+            stacktrace: error.stack?.split('\n') || []
+          }
+        }
+      };
+    }
+    
+    return {
+      message: error.message,
+      locations: error.locations,
+      path: error.path
+    };
+  }
+});
+
+// Tạo Express app
+const app = express();
+
+// CORS middleware
+app.use((req, res, next) => {
+  res.header('Access-Control-Allow-Origin', '*');
+  res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+  res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization');
+  
+  if (req.method === 'OPTIONS') {
+    res.sendStatus(200);
+  } else {
+    next();
+  }
+});
+
+// Serving static images - theo document
+app.get("/img/:filename", (req, res) => {
+  const filename = req.params.filename;
+  const pathDir = path.join(__dirname, "/img/" + filename);
+  
+  // Kiểm tra file có tồn tại không
+  if (!fs.existsSync(pathDir)) {
+    return res.status(404).send("File not found");
+  }
+  
+  res.sendFile(pathDir);
+});
+
+// GraphQL endpoint
+app.use(yoga.graphqlEndpoint, yoga);
+
+const PORT = process.env.PORT || 4000;
+
+// Tạo thư mục img nếu chưa có
+const imgDir = path.join(__dirname, "img");
+if (!fs.existsSync(imgDir)) {
+  console.log('Creating img directory...');
+  fs.mkdirSync(imgDir, { recursive: true });
+}
+
+app.listen(PORT, () => {
+  console.info(`🚀 SmartShop GraphQL Server ready at http://localhost:${PORT}/`);
+  console.info(`📊 Health check available at http://localhost:${PORT}/health`);
+  console.info(`🖼️  Static images served at http://localhost:${PORT}/img`);
+  
+  // ✅ DEBUG: Final check
+  console.log('🔍 Final db object check:');
+  console.log('  - db.orders:', !!db.orders);
+  console.log('  - db.orderItems:', !!db.orderItems);
+  console.log('  - db.orderItems.getByOrderId:', !!db.orderItems?.getByOrderId);
+});
+
+app.get('/health', (req, res) => {
+  res.send('✅ MongoDB is connected & SmartShop is healthy');
+});
+
+================================================================================
+// FILE PATH: permissions.js
+================================================================================
+
+// File: server/permissions.js - ALLOW CUSTOMER TO CANCEL THEIR OWN ORDERS
+
+import { GraphQLError } from "graphql";
+
+const hasValidSecret = async (next, parent, args, ctx, info) => {
+  const secret = ctx.secret;
+  if (!secret || secret.length < 8) {
+    throw new GraphQLError(`Access denied! Premium secret required for SmartShop VIP features.`);
+  }
+  return next();
+};
+
+const isAuthenticated = async (next, parent, args, ctx, info) => {
+  if (!ctx.user) {
+    throw new GraphQLError("Authentication required. Please login first.");
+  }
+  return next();
+};
+
+const isAdmin = async (next, parent, args, ctx, info) => {
+  if (!ctx.user) {
+    throw new GraphQLError("Authentication required.");
+  }
+  
+  if (ctx.user.role !== "admin") {
+    throw new GraphQLError("Admin access required.");
+  }
+  
+  return next();
+};
+
+const isAdminOrManager = async (next, parent, args, ctx, info) => {
+  if (!ctx.user) {
+    throw new GraphQLError("Authentication required.");
+  }
+  
+  if (ctx.user.role !== "admin" && ctx.user.role !== "manager") {
+    throw new GraphQLError("Admin or Manager access required.");
+  }
+  
+  return next();
+};
+
+// ✅ NEW: Allow customers to cancel their own orders
+const canCancelOrder = async (next, parent, args, ctx, info) => {
+  if (!ctx.user) {
+    throw new GraphQLError("Authentication required.");
+  }
+  
+  // Admin and Manager can cancel any order
+  if (ctx.user.role === "admin" || ctx.user.role === "manager") {
+    return next();
+  }
+  
+  // Customer can only cancel their own pending/confirmed orders
+  // Additional validation will be done in the resolver
+  return next();
+};
+
+export const permissions = {
+  Query: {
+    // Cart queries require authentication
+    getCart: isAuthenticated,
+    getCartItemCount: isAuthenticated,
+    
+    // Customer order queries
+    getMyOrders: isAuthenticated,
+    getMyOrder: isAuthenticated,
+    
+    // Admin order queries
+    getAllOrders: isAdminOrManager,
+    getOrder: isAdminOrManager,
+    getOrderStats: isAdminOrManager,
+  },
+  
+  Mutation: {
+    // Category operations - Admin only
+    createCategory: isAdmin,
+    updateCategory: isAdmin,
+    deleteCategory: isAdmin,
+    
+    // Brand operations - Admin only
+    createBrand: isAdmin,
+    updateBrand: isAdmin,
+    deleteBrand: isAdmin,
+    
+    // Product operations - Admin or Manager
+    createProduct: isAdminOrManager,
+    updateProduct: isAdminOrManager,
+    deleteProduct: isAdmin,
+    
+    // Upload operations - Admin or Manager
+    upload: isAdminOrManager,
+    uploadProductImage: isAdminOrManager,
+    uploadProductImages: isAdminOrManager,
+    removeProductImage: isAdminOrManager,
+    
+    // Cart operations - Customer access required
+    addToCart: isAuthenticated,
+    updateCartItem: isAuthenticated,
+    removeFromCart: isAuthenticated,
+    clearCart: isAuthenticated,
+    
+    // Order operations
+    createOrderFromCart: isAuthenticated,     // Customer can create orders
+    updateOrderStatus: isAdminOrManager,      // Admin/Manager can update status
+    updatePaymentStatus: isAdminOrManager,    // Admin/Manager can update payment
+    cancelOrder: canCancelOrder,             // ✅ FIXED: Customer can cancel their own orders
+  },
+};
+
+================================================================================
+// FILE PATH: config\firebase.js
+================================================================================
+
+// server/config/firebase.js
+import { initializeApp } from 'firebase/app';
+import { getStorage } from 'firebase/storage';
+
+// Firebase configuration
+const firebaseConfig = {
+  apiKey: "AIzaSyBm04DLTk2oxgyqyR5tJrBorLN6EFPeNiE",
+  authDomain: "smartshop-65b1d.firebaseapp.com",
+  projectId: "smartshop-65b1d",
+  storageBucket: "smartshop-65b1d.firebasestorage.app",
+  messagingSenderId: "838352067836",
+  appId: "1:838352067836:web:05befe861e6c10b4a48b79"
+  // Không cần measurementId cho backend
+};
+
+// Initialize Firebase
+const app = initializeApp(firebaseConfig);
+
+// Initialize Cloud Storage and get a reference to the service
+export const storage = getStorage(app);
+
+// Storage configuration
+export const STORAGE_CONFIG = {
+  maxFileSize: 10 * 1024 * 1024, // 10MB
+  allowedTypes: ['.jpg', '.jpeg', '.png', '.gif', '.webp'],
+  productImagesPath: 'products/images/', // Thư mục lưu ảnh sản phẩm
+  generalUploadsPath: 'uploads/' // Thư mục lưu file upload chung
+};
+
+console.log('🔥 Firebase Storage initialized successfully');
+console.log('📦 Storage bucket:', firebaseConfig.storageBucket);
+
+================================================================================
+// FILE PATH: data\init.js
+================================================================================
+
+import mongoose from "mongoose";
+
+export async function initDatabase() {
+  const DATABASE_URL = process.env.DATABASE_URL;
+  await mongoose.connect(DATABASE_URL);
+  console.log(`SmartShop Database is up and running at: ${DATABASE_URL}`);
+}
+
+================================================================================
+// FILE PATH: data\mockRepo.js
+================================================================================
+
+import _ from "lodash";
+
+const mockData = {
+  categories: [
+    { id: 1, name: "Electronics", description: "Smart electronic devices" },
+    { id: 2, name: "Smart Phones", description: "Latest smartphones" },
+    { id: 3, name: "Laptops", description: "High-performance laptops" },
+    { id: 4, name: "Smart Home", description: "IoT and smart home devices" },
+    { id: 5, name: "Wearables", description: "Smartwatches and fitness trackers" },
+  ],
+};
+
+const db = {
+  categories: {
+    getAll: () => mockData.categories,
+    findById: (id) => mockData.categories.find((item) => item.id == id),
+    deleteById: (id) => {
+      const item = mockData.categories.find((item) => item.id == id);
+      if (item) {
+        _.remove(mockData.categories, (item) => item.id == id);
+        return id;
+      }
+      return null;
+    },
+    create: (input) => {
+      const id = mockData.categories.length + 1;
+      const item = {
+        id: id,
+        name: input.name,
+        description: input.description,
+      };
+      mockData.categories.push(item);
+      return item;
+    },
+    updateById: (id, input) => {
+      const index = mockData.categories.findIndex((item) => item.id == id);
+      if (index >= 0) {
+        Object.keys(input).map((key) => {
+          const value = input[key];
+          mockData.categories[index][key] = value;
+        });
+        return mockData.categories[index];
+      }
+      return null;
+    },
+  },
+};
+
+export { db };
+
+================================================================================
+// FILE PATH: data\mongoRepo.js
+================================================================================
+
+import { Category, User, Product, Brand, Cart, Order, OrderItem, Wishlist } from "./models/index.js";
+import mongoose from "mongoose";
+
+// Helper function to build sort options from GraphQL enum
+const buildSortOptions = (orderBy, columnMapping) => {
+  if (!orderBy) return { createdAt: -1 }; // Default sort
+  
+  const [field, direction] = orderBy.split('_');
+  const fieldName = columnMapping[field] || 'createdAt';
+  const sortDirection = direction === 'ASC' ? 1 : -1;
+  
+  return { [fieldName]: sortDirection };
+};
+
+// Helper function to build query conditions
+const buildQueryConditions = (condition) => {
+  console.log('🔍 [Backend] Received filter condition:', JSON.stringify(condition, null, 2));
+
+  
+  const query = {};
+  
+  if (!condition) return query;
+  
+  // Text search with regex (case insensitive)
+  if (condition.name && condition.name.trim() !== '') {
+    query.name = { $regex: condition.name.trim(), $options: 'i' };
+  }
+  
+  if (condition.brand && condition.brand.trim() !== '') {
+    query.brand = { $regex: condition.brand.trim(), $options: 'i' };
+  }
+  
+  if (condition.country && condition.country.trim() !== '') {
+    query.country = { $regex: condition.country.trim(), $options: 'i' };
+  }
+  
+  // Exact matches
+  if (condition.category) {
+    query.category = condition.category;
+  }
+  
+  if (condition.categories && condition.categories.length > 0) {
+    query.categories = { $in: condition.categories };
+  }
+  
+  if (condition.isActive !== undefined) {
+    query.isActive = condition.isActive;
+  }
+  
+  if (condition.isFeatured !== undefined) {
+    query.isFeatured = condition.isFeatured;
+  }
+  
+  // Range queries
+  if (condition.price) {
+    const priceQuery = {};
+    if (condition.price.min !== undefined) {
+      priceQuery.$gte = condition.price.min;
+    }
+    if (condition.price.max !== undefined) {
+      priceQuery.$lte = condition.price.max;
+    }
+    if (Object.keys(priceQuery).length > 0) {
+      query.price = priceQuery;
+    }
+  }
+  
+  if (condition.stock) {
+    const stockQuery = {};
+    if (condition.stock.min !== undefined) {
+      stockQuery.$gte = condition.stock.min;
+    }
+    if (condition.stock.max !== undefined) {
+      stockQuery.$lte = condition.stock.max;
+    }
+    if (Object.keys(stockQuery).length > 0) {
+      query.stock = stockQuery;
+    }
+  }
+  
+  return query;
+};
+
+const db = {
+  categories: {
+    // New paginated method
+    getAll: async ({ first = 10, offset = 0, orderBy = 'CREATED_DESC', condition } = {}) => {
+      try {
+        const columnMapping = {
+          ID: '_id',
+          NAME: 'name',
+          CREATED: 'createdAt'
+        };
+        
+        const query = buildQueryConditions(condition);
+        const sortOptions = buildSortOptions(orderBy, columnMapping);
+        
+        console.log('Categories query:', query);
+        console.log('Categories sort:', sortOptions);
+        
+        // Get total count
+        const totalCount = await Category.countDocuments(query);
+        
+        // Ensure offset doesn't exceed total count
+        const safeOffset = Math.min(offset, Math.max(0, totalCount - 1));
+        
+        // Get paginated items
+        const items = await Category.find(query)
+          .sort(sortOptions)
+          .skip(safeOffset)
+          .limit(first);
+        
+        return {
+          items,
+          totalCount
+        };
+      } catch (error) {
+        console.error('Error in categories.getAll:', error);
+        throw error;
+      }
+    },
+    
+    // Simple method for backward compatibility
+    getAllSimple: async () => {
+      return await Category.find({ isActive: true }).sort({ createdAt: -1 });
+    },
+    
+    findById: async (id) => {
+      return await Category.findById(id);
+    },
+    
+    create: async (input) => {
+      const category = new Category(input);
+      return await category.save();
+    },
+    
+    updateById: async (id, input) => {
+      return await Category.findByIdAndUpdate(id, input, { new: true });
+    },
+    
+    deleteById: async (id) => {
+      const result = await Category.findByIdAndDelete(id);
+      return result ? id : null;
+    },
+  },
+
+  brands: {
+    // New paginated method
+    getAll: async ({ first = 10, offset = 0, orderBy = 'CREATED_DESC', condition } = {}) => {
+      try {
+        const columnMapping = {
+          ID: '_id',
+          NAME: 'name',
+          FOUNDED: 'foundedYear',
+          CREATED: 'createdAt'
+        };
+        
+        const query = buildQueryConditions(condition);
+        const sortOptions = buildSortOptions(orderBy, columnMapping);
+        
+        console.log('Brands query:', query);
+        console.log('Brands sort:', sortOptions);
+        
+        // Get total count
+        const totalCount = await Brand.countDocuments(query);
+        
+        // Ensure offset doesn't exceed total count
+        const safeOffset = Math.min(offset, Math.max(0, totalCount - 1));
+        
+        // Get paginated items with population
+        const items = await Brand.find(query)
+          .populate('categories')
+          .sort(sortOptions)
+          .skip(safeOffset)
+          .limit(first);
+        
+        return {
+          items,
+          totalCount
+        };
+      } catch (error) {
+        console.error('Error in brands.getAll:', error);
+        throw error;
+      }
+    },
+    
+    // Simple method for backward compatibility
+    getAllSimple: async () => {
+      return await Brand.find({ isActive: true })
+        .populate('categories')
+        .sort({ createdAt: -1 });
+    },
+    
+    findById: async (id) => {
+      return await Brand.findById(id).populate('categories');
+    },
+    
+    findBySlug: async (slug) => {
+      return await Brand.findOne({ slug }).populate('categories');
+    },
+    
+    findByName: async (name) => {
+      return await Brand.findOne({ name });
+    },
+    
+    create: async (input) => {
+      const brand = new Brand(input);
+      const savedBrand = await brand.save();
+      return await Brand.findById(savedBrand._id).populate('categories');
+    },
+    
+    updateById: async (id, input) => {
+      const updatedBrand = await Brand.findByIdAndUpdate(id, input, { new: true });
+      return await Brand.findById(updatedBrand._id).populate('categories');
+    },
+    
+    deleteById: async (id) => {
+      const result = await Brand.findByIdAndDelete(id);
+      return result ? id : null;
+    },
+
+    // Get featured brands
+    getFeatured: async () => {
+      return await Brand.find({ isFeatured: true, isActive: true })
+        .populate('categories')
+        .sort({ createdAt: -1 });
+    },
+
+    // Get brands by category
+    getByCategory: async (categoryId) => {
+      return await Brand.find({ categories: categoryId, isActive: true })
+        .populate('categories')
+        .sort({ name: 1 });
+    },
+  },
+
+  products: {
+    // New paginated method with filtering
+    getAll: async ({ first = 10, offset = 0, orderBy = 'CREATED_DESC', condition } = {}) => {
+      try {
+        const columnMapping = {
+          ID: '_id',
+          NAME: 'name',
+          PRICE: 'price',
+          STOCK: 'stock',
+          CREATED: 'createdAt'
+        };
+        
+        const query = buildQueryConditions(condition);
+        const sortOptions = buildSortOptions(orderBy, columnMapping);
+        
+        console.log('Products query:', query);
+        console.log('Products sort:', sortOptions);
+        
+        // Get total count
+        const totalCount = await Product.countDocuments(query);
+        
+        // Ensure offset doesn't exceed total count
+        const safeOffset = Math.min(offset, Math.max(0, totalCount - 1));
+        
+        // Get paginated items with population
+        const items = await Product.find(query)
+          .populate('category')
+          .populate('brand')
+          .sort(sortOptions)
+          .skip(safeOffset)
+          .limit(first);
+        
+        return {
+          items,
+          totalCount
+        };
+      } catch (error) {
+        console.error('Error in products.getAll:', error);
+        throw error;
+      }
+    },
+    
+    // Search method
+    search: async ({ query: searchQuery, first = 10, offset = 0, orderBy = 'CREATED_DESC' } = {}) => {
+      try {
+        const columnMapping = {
+          ID: '_id',
+          NAME: 'name',
+          PRICE: 'price',
+          STOCK: 'stock',
+          CREATED: 'createdAt'
+        };
+        
+        // Build search query
+        const searchTerms = searchQuery.trim().split(/\s+/);
+        const searchConditions = searchTerms.map(term => ({
+          $or: [
+            { name: { $regex: term, $options: 'i' } },
+            { description: { $regex: term, $options: 'i' } },
+            { sku: { $regex: term, $options: 'i' } }
+          ]
+        }));
+        
+        const query = {
+          $and: searchConditions,
+          isActive: true // Only search active products
+        };
+        
+        const sortOptions = buildSortOptions(orderBy, columnMapping);
+        
+        console.log('Search query:', JSON.stringify(query, null, 2));
+        
+        // Get total count
+        const totalCount = await Product.countDocuments(query);
+        
+        // Ensure offset doesn't exceed total count
+        const safeOffset = Math.min(offset, Math.max(0, totalCount - 1));
+        
+        // Get paginated items with population
+        const items = await Product.find(query)
+          .populate('category')
+          .populate('brand')
+          .sort(sortOptions)
+          .skip(safeOffset)
+          .limit(first);
+        
+        return {
+          items,
+          totalCount
+        };
+      } catch (error) {
+        console.error('Error in products.search:', error);
+        throw error;
+      }
+    },
+    
+    // Simple method for backward compatibility
+    getAllSimple: async () => {
+      return await Product.find({ isActive: true })
+        .populate('category')
+        .populate('brand')
+        .sort({ createdAt: -1 });
+    },
+    
+    findById: async (id) => {
+      return await Product.findById(id).populate('category').populate('brand');
+    },
+    
+    create: async (input) => {
+      const product = new Product(input);
+      const savedProduct = await product.save();
+      return await Product.findById(savedProduct._id).populate('category').populate('brand');
+    },
+    
+    updateById: async (id, input) => {
+      const updatedProduct = await Product.findByIdAndUpdate(id, input, { new: true });
+      return await Product.findById(updatedProduct._id).populate('category').populate('brand');
+    },
+    
+    deleteById: async (id) => {
+      const result = await Product.findByIdAndDelete(id);
+      return result ? id : null;
+    },
+
+    // Get featured products
+    getFeatured: async () => {
+      return await Product.find({ isFeatured: true, isActive: true })
+        .populate('category')
+        .populate('brand')
+        .sort({ createdAt: -1 });
+    },
+
+    // Get products by category
+    getByCategory: async (categoryId) => {
+      return await Product.find({ category: categoryId, isActive: true })
+        .populate('category')
+        .populate('brand')
+        .sort({ createdAt: -1 });
+    },
+
+    // Get products by brand
+    getByBrand: async (brandId) => {
+      return await Product.find({ brand: brandId, isActive: true })
+        .populate('category')
+        .populate('brand')
+        .sort({ createdAt: -1 });
+    },
+
+    // Get products by brand and category
+    getByBrandAndCategory: async (brandId, categoryId) => {
+      return await Product.find({ 
+        brand: brandId, 
+        category: categoryId, 
+        isActive: true 
+      })
+        .populate('category')
+        .populate('brand')
+        .sort({ createdAt: -1 });
+    },
+
+    // Add image to product
+    addImage: async (productId, filename) => {
+      const product = await Product.findById(productId);
+      if (!product) throw new Error('Product not found');
+      
+      const currentImages = product.images || [];
+      const updatedImages = [...currentImages, filename];
+      
+      return await Product.findByIdAndUpdate(
+        productId, 
+        { images: updatedImages }, 
+        { new: true }
+      ).populate('category').populate('brand');
+    },
+
+    // Remove image from product
+    removeImage: async (productId, filename) => {
+      const product = await Product.findById(productId);
+      if (!product) throw new Error('Product not found');
+      
+      const currentImages = product.images || [];
+      const updatedImages = currentImages.filter(img => img !== filename);
+      
+      return await Product.findByIdAndUpdate(
+        productId, 
+        { images: updatedImages }, 
+        { new: true }
+      ).populate('category').populate('brand');
+    }
+  },
+
+  users: {
+    findOne: async (username) => {
+      return await User.findOne({ username }).lean();
+    },
+    
+    findById: async (id) => {
+      return await User.findById(id).lean();
+    },
+    
+    findByEmail: async (email) => {
+      return await User.findOne({ email }).lean();
+    },
+    
+    create: async (input) => {
+      const user = new User(input);
+      return await user.save();
+    },
+
+    // ===== CÁC METHOD ĐÃ CÓ TỪ TRƯỚC =====
+    updateById: async (id, updateData) => {
+      try {
+        // Sử dụng findByIdAndUpdate của Mongoose để cập nhật và trả về tài liệu mới
+        return await User.findByIdAndUpdate(id, updateData, { new: true }).lean(); [cite_start]// [cite: 35]
+      } catch (error) {
+        console.error('User updateById error:', error);
+        throw error;
+      }
+    },
+
+    updateOne: async (filter, update) => {
+      try {
+        const result = await User.updateOne(filter, update);
+        return result;
+      } catch (error) {
+        console.error('User updateOne error:', error);
+        throw error;
+      }
+    },
+
+    findOneByQuery: async (query) => {
+      try {
+        return await User.findOne(query).lean();
+      } catch (error) {
+        console.error('User findOneByQuery error:', error);
+        throw error;
+      }
+    },
+
+    // ===== THÊM MỚI: OTP-specific methods =====
+    
+    // Lưu OTP vào database
+    savePasswordResetOTP: async (email, otp, otpExpires) => {
+      try {
+        console.log('Saving OTP to DB:', { email, otp, otpExpires });
+        const result = await User.updateOne(
+          { email: email },
+          {
+            $set: {
+              passwordResetOTP: otp,
+              passwordResetOTPExpires: otpExpires,
+              passwordResetEmail: email
+            }
+          }
+        );
+        console.log('Save OTP result:', result);
+        return result;
+      } catch (error) {
+        console.error('Save OTP error:', error);
+        throw error;
+      }
+    },
+
+    // Tìm user theo OTP hợp lệ
+    findByValidOTP: async (email, otp) => {
+      try {
+        console.log('Finding user by valid OTP:', { email, otp });
+        const user = await User.findOne({
+          passwordResetEmail: email,
+          passwordResetOTP: otp,
+          passwordResetOTPExpires: { $gt: new Date() } // OTP chưa hết hạn
+        }).lean();
+        console.log('Found user with valid OTP:', user ? 'Yes' : 'No');
+        return user;
+      } catch (error) {
+        console.error('Find by valid OTP error:', error);
+        throw error;
+      }
+    },
+
+    // Reset password và clear OTP
+    resetPasswordAndClearOTP: async (userId, hashedPassword) => {
+      try {
+        console.log('Resetting password and clearing OTP for user:', userId);
+        const result = await User.updateOne(
+          { _id: userId },
+          {
+            $set: {
+              password: hashedPassword
+            },
+            $unset: {
+              passwordResetOTP: "",
+              passwordResetOTPExpires: "",
+              passwordResetEmail: ""
+            }
+          }
+        );
+        console.log('Reset password result:', result);
+        return result;
+      } catch (error) {
+        console.error('Reset password and clear OTP error:', error);
+        throw error;
+      }
+    }
+  },
+
+  carts: {
+    // Lấy tất cả items trong cart của user
+    getByUserId: async (userId) => {
+      try {
+        const cartItems = await Cart.find({ userId })
+          .populate('productId')
+          .sort({ addedAt: -1 });
+        
+        return cartItems;
+      } catch (error) {
+        console.error('Error in carts.getByUserId:', error);
+        throw error;
+      }
+    },
+
+    // Tìm cart item của user cho 1 product cụ thể
+    findByUserAndProduct: async (userId, productId) => {
+      try {
+        return await Cart.findOne({ userId, productId });
+      } catch (error) {
+        console.error('Error in carts.findByUserAndProduct:', error);
+        throw error;
+      }
+    },
+
+    // Tạo cart item mới
+    create: async (cartData) => {
+      try {
+        const cartItem = new Cart(cartData);
+        const savedItem = await cartItem.save();
+        
+        // Populate product info trước khi return
+        return await Cart.findById(savedItem._id).populate('productId');
+      } catch (error) {
+        console.error('Error in carts.create:', error);
+        if (error.code === 11000) {
+          throw new Error('Item already exists in cart');
+        }
+        throw error;
+      }
+    },
+
+    // Cập nhật quantity của cart item
+    updateQuantity: async (userId, productId, quantity) => {
+      try {
+        const updatedItem = await Cart.findOneAndUpdate(
+          { userId, productId },
+          { quantity },
+          { new: true }
+        ).populate('productId');
+
+        if (!updatedItem) {
+          throw new Error('Cart item not found');
+        }
+
+        return updatedItem;
+      } catch (error) {
+        console.error('Error in carts.updateQuantity:', error);
+        throw error;
+      }
+    },
+
+    // Xóa 1 item khỏi cart
+    removeItem: async (userId, productId) => {
+      try {
+        const result = await Cart.findOneAndDelete({ userId, productId });
+        return result !== null;
+      } catch (error) {
+        console.error('Error in carts.removeItem:', error);
+        throw error;
+      }
+    },
+
+    // Xóa toàn bộ cart của user
+    clearByUserId: async (userId) => {
+      try {
+        const result = await Cart.deleteMany({ userId });
+        return result.deletedCount > 0;
+      } catch (error) {
+        console.error('Error in carts.clearByUserId:', error);
+        throw error;
+      }
+    },
+
+    // Lấy tổng số items trong cart (để hiển thị badge)
+    getItemCount: async (userId) => {
+      try {
+        const cartItems = await Cart.find({ userId });
+        return cartItems.reduce((sum, item) => sum + item.quantity, 0);
+      } catch (error) {
+        console.error('Error in carts.getItemCount:', error);
+        throw error;
+      }
+    },
+
+    // Kiểm tra và validate cart trước khi checkout
+    validateCart: async (userId) => {
+      try {
+        const cartItems = await Cart.find({ userId }).populate('productId');
+        
+        const validationErrors = [];
+        const validItems = [];
+
+        for (const item of cartItems) {
+          if (!item.productId) {
+            validationErrors.push(`Product ${item.productName} no longer exists`);
+            continue;
+          }
+
+          if (!item.productId.isActive) {
+            validationErrors.push(`Product ${item.productName} is no longer available`);
+            continue;
+          }
+
+          if (item.productId.stock < item.quantity) {
+            validationErrors.push(`${item.productName}: Only ${item.productId.stock} items available (you have ${item.quantity} in cart)`);
+            continue;
+          }
+
+          // Kiểm tra giá có thay đổi không
+          if (item.unitPrice !== item.productId.price) {
+            validationErrors.push(`${item.productName}: Price changed from ${item.unitPrice} to ${item.productId.price}`);
+          }
+
+          validItems.push(item);
+        }
+
+        return {
+          isValid: validationErrors.length === 0,
+          errors: validationErrors,
+          validItems
+        };
+      } catch (error) {
+        console.error('Error in carts.validateCart:', error);
+        throw error;
+      }
+    }
+  },
+  orders: {
+    // Create order from cart
+    createFromCart: async (userId, orderInput) => {
+      const session = await mongoose.startSession();
+      
+      try {
+        session.startTransaction();
+        
+        // 1. Get and validate cart
+        const cartItems = await Cart.find({ userId }).populate('productId');
+        
+        if (!cartItems || cartItems.length === 0) {
+          throw new Error('Cart is empty');
+        }
+        
+        // 2. Calculate order totals
+        let subtotal = 0;
+        const orderItemsData = [];
+        
+        for (const cartItem of cartItems) {
+          const product = cartItem.productId;
+          
+          if (!product) {
+            throw new Error(`Product not found for cart item ${cartItem._id}`);
+          }
+          
+          if (product.stock < cartItem.quantity) {
+            throw new Error(`Insufficient stock for ${product.name}. Available: ${product.stock}, Requested: ${cartItem.quantity}`);
+          }
+          
+          const itemTotal = cartItem.unitPrice * cartItem.quantity;
+          subtotal += itemTotal;
+          
+          // Prepare order item data
+          orderItemsData.push({
+            productId: product._id,
+            productName: product.name,
+            productSku: product.sku,
+            quantity: cartItem.quantity,
+            unitPrice: cartItem.unitPrice,
+            totalPrice: itemTotal,
+            productSnapshot: {
+              description: product.description,
+              images: product.images,
+              brand: product.brand?.name || 'Unknown',
+              category: product.category?.name || 'Unknown'
+            }
+          });
+        }
+        
+        // 3. Generate order number
+        const orderCount = await Order.countDocuments() + 1;
+        const orderNumber = `DH${new Date().getFullYear()}${String(Date.now()).slice(-8)}${String(orderCount).padStart(3, '0')}`;
+        
+        // 4. Create order
+        const orderData = {
+          orderNumber,
+          userId,
+          customerInfo: orderInput.customerInfo,
+          paymentMethod: orderInput.paymentMethod,
+          paymentStatus: 'pending',
+          status: 'pending',
+          subtotal,
+          totalAmount: subtotal, // Could add tax, shipping later
+          customerNotes: orderInput.customerNotes,
+          orderDate: new Date()
+        };
+        
+        const order = await Order.create([orderData], { session });
+        const orderId = order[0]._id;
+        
+        // 5. Create order items
+        const orderItemsWithOrderId = orderItemsData.map(item => ({
+          ...item,
+          orderId
+        }));
+        
+        await OrderItem.create(orderItemsWithOrderId, { session, ordered: true });
+        
+        // 6. Update product stock and clear cart
+        for (const cartItem of cartItems) {
+          await Product.findByIdAndUpdate(
+            cartItem.productId._id,
+            { $inc: { stock: -cartItem.quantity } },
+            { session }
+          );
+        }
+        
+        // Clear cart
+        await Cart.deleteMany({ userId }, { session });
+        
+        await session.commitTransaction();
+        
+        // 7. Return populated order
+        return await db.orders.getByOrderNumber(orderNumber);
+        
+      } catch (error) {
+        await session.abortTransaction();
+        console.error('Error creating order from cart:', error);
+        throw error;
+      } finally {
+        session.endSession();
+      }
+    },
+
+    // Get order by order number
+    getByOrderNumber: async (orderNumber) => {
+      try {
+        console.log('🔍 mongoRepo: Getting order by number:', orderNumber);
+        const order = await Order.findOne({ orderNumber })
+          .populate('userId', 'username email firstName lastName');
+        
+        console.log('📦 mongoRepo: Order found:', order ? 'Yes' : 'No');
+        return order;
+      } catch (error) {
+        console.error('❌ mongoRepo: Error in getByOrderNumber:', error);
+        throw error;
+      }
+    },
+
+    // Get orders by user ID
+    getByUserId: async (userId, { first = 10, offset = 0, orderBy = 'DATE_DESC' } = {}) => {
+      try {
+        const columnMapping = {
+          DATE: 'orderDate',
+          STATUS: 'status',
+          TOTAL: 'totalAmount'
+        };
+        
+        const query = { userId };
+        const sortOptions = buildSortOptions(orderBy, columnMapping);
+        
+        const totalCount = await Order.countDocuments(query);
+        const safeOffset = Math.min(offset, Math.max(0, totalCount - 1));
+        
+        const items = await Order.find(query)
+          .sort(sortOptions)
+          .skip(safeOffset)
+          .limit(first);
+        
+        return { items, totalCount };
+      } catch (error) {
+        console.error('Error in orders.getByUserId:', error);
+        throw error;
+      }
+    },
+
+    // Get all orders (admin)
+    getAll: async ({ first = 10, offset = 0, orderBy = 'DATE_DESC', condition, search } = {}) => {
+      try {
+        const columnMapping = {
+          DATE: 'orderDate',
+          STATUS: 'status',
+          TOTAL: 'totalAmount'
+        };
+        
+        const query = {};
+        
+        if (condition) {
+          if (condition.status) query.status = condition.status;
+          if (condition.paymentStatus) query.paymentStatus = condition.paymentStatus;
+          if (condition.paymentMethod) query.paymentMethod = condition.paymentMethod;
+          if (condition.userId) query.userId = condition.userId;
+          
+          if (condition.dateFrom || condition.dateTo) {
+            query.orderDate = {};
+            if (condition.dateFrom) query.orderDate.$gte = new Date(condition.dateFrom);
+            if (condition.dateTo) query.orderDate.$lte = new Date(condition.dateTo);
+          }
+        }
+        
+        if (search && search.trim()) {
+          const searchRegex = { $regex: search.trim(), $options: 'i' };
+          query.$or = [
+            { orderNumber: searchRegex },
+            { 'customerInfo.fullName': searchRegex },
+            { 'customerInfo.phone': searchRegex },
+            { 'customerInfo.address': searchRegex }
+          ];
+        }
+        
+        const sortOptions = buildSortOptions(orderBy, columnMapping);
+        
+        const totalCount = await Order.countDocuments(query);
+        const safeOffset = Math.min(offset, Math.max(0, totalCount - 1));
+        
+        const items = await Order.find(query)
+          .populate('userId', 'username email firstName lastName')
+          .sort(sortOptions)
+          .skip(safeOffset)
+          .limit(first);
+        
+        return { items, totalCount };
+      } catch (error) {
+        console.error('Error in orders.getAll:', error);
+        throw error;
+      }
+    },
+
+    // Update order status
+    updateStatus: async (orderNumber, status, adminNotes) => {
+      try {
+        const updateData = { 
+          status,
+          ...(adminNotes && { adminNotes })
+        };
+        
+        const now = new Date();
+        switch (status) {
+          case 'confirmed':
+            updateData.confirmedAt = now;
+            break;
+          case 'processing':
+            updateData.processedAt = now;
+            break;
+          case 'shipping':
+            updateData.shippedAt = now;
+            break;
+          case 'delivered':
+            updateData.deliveredAt = now;
+            updateData.paymentStatus = 'paid';
+            break;
+          case 'cancelled':
+            updateData.cancelledAt = now;
+            await db.orders.restoreStockForOrder(orderNumber);
+            break;
+        }
+        
+        return await Order.findOneAndUpdate(
+          { orderNumber },
+          updateData,
+          { new: true }
+        ).populate('userId', 'username email firstName lastName');
+      } catch (error) {
+        console.error('Error in orders.updateStatus:', error);
+        throw error;
+      }
+    },
+
+    // Update payment status
+    updatePaymentStatus: async (orderNumber, paymentStatus) => {
+      try {
+        return await Order.findOneAndUpdate(
+          { orderNumber },
+          { paymentStatus },
+          { new: true }
+        ).populate('userId', 'username email firstName lastName');
+      } catch (error) {
+        console.error('Error in orders.updatePaymentStatus:', error);
+        throw error;
+      }
+    },
+
+    // Cancel order
+    cancel: async (orderNumber, reason) => {
+      try {
+        const updateData = {
+          status: 'cancelled',
+          cancelledAt: new Date(),
+          ...(reason && { adminNotes: reason })
+        };
+        
+        await db.orders.restoreStockForOrder(orderNumber);
+        
+        return await Order.findOneAndUpdate(
+          { orderNumber },
+          updateData,
+          { new: true }
+        ).populate('userId', 'username email firstName lastName');
+      } catch (error) {
+        console.error('Error in orders.cancel:', error);
+        throw error;
+      }
+    },
+
+    // Restore stock for cancelled order
+    restoreStockForOrder: async (orderNumber) => {
+      try {
+        const order = await Order.findOne({ orderNumber });
+        if (!order) throw new Error('Order not found');
+        
+        const orderItems = await OrderItem.find({ orderId: order._id });
+        
+        for (const item of orderItems) {
+          await Product.findByIdAndUpdate(
+            item.productId,
+            { $inc: { stock: item.quantity } }
+          );
+        }
+        
+        console.log(`Stock restored for order ${orderNumber}`);
+      } catch (error) {
+        console.error('Error restoring stock:', error);
+        throw error;
+      }
+    },
+
+    // Get order statistics
+    getStats: async () => {
+      try {
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        
+        const [
+          totalOrders,
+          pendingOrders,
+          confirmedOrders,
+          shippingOrders,
+          deliveredOrders,
+          cancelledOrders,
+          todayOrders,
+          revenueResult
+        ] = await Promise.all([
+          Order.countDocuments(),
+          Order.countDocuments({ status: 'pending' }),
+          Order.countDocuments({ status: 'confirmed' }),
+          Order.countDocuments({ status: 'shipping' }),
+          Order.countDocuments({ status: 'delivered' }),
+          Order.countDocuments({ status: 'cancelled' }),
+          Order.countDocuments({ orderDate: { $gte: today } }),
+          Order.aggregate([
+            { $match: { status: 'delivered' } },
+            { $group: { _id: null, total: { $sum: '$totalAmount' } } }
+          ])
+        ]);
+        
+        const totalRevenue = revenueResult[0]?.total || 0;
+        
+        return {
+          totalOrders,
+          pendingOrders,
+          confirmedOrders,
+          shippingOrders,
+          deliveredOrders,
+          cancelledOrders,
+          totalRevenue,
+          todayOrders
+        };
+      } catch (error) {
+        console.error('Error in orders.getStats:', error);
+        throw error;
+      }
+    }
+  },
+
+  // ✅ FIX: OrderItems section - ĐÚNG STRUCTURE
+  orderItems: {
+    // Get order items by order ID - ĐÂY LÀ FUNCTION BỊ THIẾU
+    getByOrderId: async (orderId) => {
+      try {
+        console.log('🔍 mongoRepo: Getting order items for orderId:', orderId);
+        
+        if (!orderId) {
+          console.log('❌ mongoRepo: orderId is null/undefined');
+          return [];
+        }
+        
+        if (!mongoose.Types.ObjectId.isValid(orderId)) {
+          console.log('❌ mongoRepo: Invalid orderId format:', orderId);
+          return [];
+        }
+        
+        const items = await OrderItem.find({ orderId })
+          .sort({ createdAt: 1 });
+        
+        console.log(`📦 mongoRepo: Found ${items?.length || 0} order items`);
+        return items || [];
+      } catch (error) {
+        console.error('❌ mongoRepo: Error in orderItems.getByOrderId:', error);
+        return []; // Return empty array instead of throwing
+      }
+    },
+
+    // Get order items by product ID (for analytics)
+    getByProductId: async (productId) => {
+      try {
+        return await OrderItem.find({ productId })
+          .populate('orderId')
+          .sort({ createdAt: -1 });
+      } catch (error) {
+        console.error('Error in orderItems.getByProductId:', error);
+        throw error;
+      }
+    },
+
+    // Create order items (used during order creation)
+    createMany: async (orderItemsData, session = null) => {
+      try {
+        const options = session ? { session } : {};
+        return await OrderItem.create(orderItemsData, options);
+      } catch (error) {
+        console.error('Error creating order items:', error);
+        throw error;
+      }
+    },
+
+    // Get order items summary for reporting
+    getSummary: async (orderId) => {
+      try {
+        const items = await OrderItem.find({ orderId });
+        
+        const summary = {
+          totalItems: items.length,
+          totalQuantity: items.reduce((sum, item) => sum + item.quantity, 0),
+          totalValue: items.reduce((sum, item) => sum + item.totalPrice, 0)
+        };
+        
+        return summary;
+      } catch (error) {
+        console.error('Error getting order items summary:', error);
+        throw error;
+      }
+    }
+  },
+
+  wishlists: {
+    findByUserId: async (userId) => {
+      return await Wishlist.find({ userId }).sort({ createdAt: -1 }).populate('productId');
+    },
+
+    findOne: async (userId, productId) => {
+      return await Wishlist.findOne({ userId, productId });
+    },
+
+    create: async (userId, productId) => {
+      // Dùng findOneAndUpdate với `upsert: true` để tránh lỗi trùng lặp
+      // Nếu đã tồn tại, nó sẽ không làm gì. Nếu chưa, nó sẽ tạo mới.
+      const wishlistItem = await Wishlist.findOneAndUpdate(
+        { userId, productId },
+        { $setOnInsert: { userId, productId } },
+        { new: true, upsert: true, runValidators: true }
+      );
+      return await wishlistItem.populate('productId');
+    },
+
+    remove: async (userId, productId) => {
+      try {
+        // Log để kiểm tra
+        console.log(`Attempting to remove wishlist item for userId: ${userId}, productId: ${productId}`);
+        
+        // Dùng `deleteOne` để xóa tài liệu khớp điều kiện
+        const result = await Wishlist.deleteOne({ userId, productId });
+        
+        // Log kết quả
+        console.log('Deletion result:', result);
+        
+        // `deletedCount` sẽ là 1 nếu xóa thành công, 0 nếu không tìm thấy
+        return result.deletedCount > 0;
+      } catch (error) {
+        console.error('Error removing from wishlist:', error);
+        return false; // Trả về false nếu có lỗi
+      }
+    },
+
+  },
+};
+
+export { db };
+
+================================================================================
+// FILE PATH: data\models\brand.js
+================================================================================
+
+import mongoose from "mongoose";
+
+let Schema = mongoose.Schema;
+let String = Schema.Types.String;
+let Number = Schema.Types.Number;
+let Boolean = Schema.Types.Boolean;
+
+export const BrandSchema = new Schema(
+  {
+    name: {
+      type: String,
+      required: true,
+      unique: true,
+      trim: true,
+    },
+    slug: {
+      type: String,
+      unique: true,
+      lowercase: true,
+      trim: true,
+    },
+    description: {
+      type: String,
+      trim: true,
+    },
+    logo: String,
+    banner: String,
+    website: {
+      type: String,
+      trim: true,
+    },
+    country: {
+      type: String,
+      trim: true,
+    },
+    foundedYear: {
+      type: Number,
+      min: 1800,
+      max: new Date().getFullYear(),
+    },
+    categories: [{
+      type: Schema.Types.ObjectId,
+      ref: 'Category',
+    }],
+    isActive: {
+      type: Boolean,
+      default: true,
+    },
+    isFeatured: {
+      type: Boolean,
+      default: false,
+    },
+    seoTitle: {
+      type: String,
+      trim: true,
+    },
+    seoDescription: {
+      type: String,
+      trim: true,
+    },
+  },
+  {
+    collection: "brands",
+    timestamps: true,
+  }
+);
+
+// Pre-save middleware to generate slug
+BrandSchema.pre('save', function(next) {
+  if (this.isModified('name') || this.isNew) {
+    this.slug = this.name
+      .toLowerCase()
+      .replace(/[^a-z0-9\s-]/g, '')
+      .replace(/\s+/g, '-')
+      .replace(/-+/g, '-')
+      .trim();
+  }
+  next();
+});
+
+================================================================================
+// FILE PATH: data\models\cart.js
+================================================================================
+
+import mongoose from "mongoose";
+
+let Schema = mongoose.Schema;
+let Number = Schema.Types.Number;
+
+export const CartSchema = new Schema(
+  {
+    userId: {
+      type: Schema.Types.ObjectId,
+      ref: 'User',
+      required: true,
+    },
+    productId: {
+      type: Schema.Types.ObjectId,
+      ref: 'Product',
+      required: true,
+    },
+    quantity: {
+      type: Number,
+      required: true,
+      min: 1,
+      default: 1,
+    },
+    unitPrice: {
+      type: Number,
+      required: true,
+      min: 0,
+    },
+    productName: {
+      type: String,
+      required: true,
+    },
+    addedAt: {
+      type: Date,
+      default: Date.now,
+    }
+  },
+  {
+    collection: "carts",
+    timestamps: true,
+  }
+);
+
+// Compound index để đảm bảo 1 user chỉ có 1 item cho 1 product
+CartSchema.index({ userId: 1, productId: 1 }, { unique: true });
+
+================================================================================
+// FILE PATH: data\models\category.js
+================================================================================
+
+import mongoose from "mongoose";
+
+let Schema = mongoose.Schema;
+let String = Schema.Types.String;
+
+export const CategorySchema = new Schema(
+  {
+    name: {
+      type: String,
+      required: true,
+      unique: true,
+    },
+    description: String,
+    image: String,
+    isActive: {
+      type: Boolean,
+      default: true,
+    },
+  },
+  {
+    collection: "categories",
+    timestamps: true,
+  }
+);
+
+================================================================================
+// FILE PATH: data\models\index.js
+================================================================================
+
+import mongoose from "mongoose";
+import { CategorySchema } from "./category.js";
+import { ProductSchema } from "./product.js";
+import { UserSchema } from "./user.js";
+import { BrandSchema } from "./brand.js";
+import { CartSchema } from "./cart.js"; 
+import { OrderSchema } from "./order.js";
+import { OrderItemSchema } from "./orderItem.js"; 
+import { WishlistSchema } from "./wishlist.js"; // Thêm dòng này
+
+export const Category = mongoose.model("Category", CategorySchema);
+export const Product = mongoose.model("Product", ProductSchema);
+export const User = mongoose.model("User", UserSchema);
+export const Brand = mongoose.model("Brand", BrandSchema);
+export const Cart = mongoose.model("Cart", CartSchema); 
+export const Order = mongoose.model("Order", OrderSchema);
+export const OrderItem = mongoose.model("OrderItem", OrderItemSchema);
+export const Wishlist = mongoose.model("Wishlist", WishlistSchema); // Thêm dòng này
+
+
+================================================================================
+// FILE PATH: data\models\order.js
+================================================================================
+
+import mongoose from "mongoose";
+
+let Schema = mongoose.Schema;
+let String = Schema.Types.String;
+let Number = Schema.Types.Number;
+
+export const OrderSchema = new Schema(
+  {
+    orderNumber: {
+      type: String,
+      unique: true,
+      required: true,
+    },
+    userId: {
+      type: Schema.Types.ObjectId,
+      ref: 'User',
+      required: true,
+    },
+    customerInfo: {
+      fullName: {
+        type: String,
+        required: true,
+      },
+      phone: {
+        type: String,
+        required: true,
+      },
+      address: {
+        type: String,
+        required: true,
+      },
+      city: {
+        type: String,
+        required: true,
+      },
+      notes: String, // Ghi chú từ khách hàng
+    },
+    status: {
+      type: String,
+      enum: ['pending', 'confirmed', 'processing', 'shipping', 'delivered', 'cancelled'],
+      default: 'pending',
+    },
+    paymentMethod: {
+      type: String,
+      enum: ['cod', 'bank_transfer'],
+      required: true,
+    },
+    paymentStatus: {
+      type: String,
+      enum: ['pending', 'paid', 'failed', 'refunded'],
+      default: 'pending',
+    },
+    subtotal: {
+      type: Number,
+      required: true,
+      min: 0,
+    },
+    totalAmount: {
+      type: Number,
+      required: true,
+      min: 0,
+    },
+    orderDate: {
+      type: Date,
+      default: Date.now,
+    },
+    confirmedAt: Date,
+    processedAt: Date,
+    shippedAt: Date,
+    deliveredAt: Date,
+    cancelledAt: Date,
+    customerNotes: String,
+    adminNotes: String,
+  },
+  {
+    collection: "orders",
+    timestamps: true,
+  }
+);
+
+// Index để query nhanh
+OrderSchema.index({ userId: 1, orderDate: -1 });
+OrderSchema.index({ status: 1, orderDate: -1 });
+OrderSchema.index({ orderNumber: 1 });
+
+================================================================================
+// FILE PATH: data\models\orderItem.js
+================================================================================
+
+import mongoose from "mongoose";
+
+let Schema = mongoose.Schema;
+let String = Schema.Types.String;
+let Number = Schema.Types.Number;
+
+export const OrderItemSchema = new Schema(
+  {
+    orderId: {
+      type: Schema.Types.ObjectId,
+      ref: 'Order',
+      required: true,
+    },
+    productId: {
+      type: Schema.Types.ObjectId,
+      ref: 'Product',
+      required: true,
+    },
+    productName: {
+      type: String,
+      required: true,
+    },
+    productSku: {
+      type: String,
+      required: true,
+    },
+    quantity: {
+      type: Number,
+      required: true,
+      min: 1,
+    },
+    unitPrice: {
+      type: Number,
+      required: true,
+      min: 0,
+    },
+    totalPrice: {
+      type: Number,
+      required: true,
+      min: 0,
+    },
+    // Snapshot thông tin product tại thời điểm đặt hàng
+    productSnapshot: {
+      description: String,
+      images: [String],
+      brand: String,
+      category: String,
+    }
+  },
+  {
+    collection: "orderItems",
+    timestamps: true,
+  }
+);
+
+// Index để query nhanh
+OrderItemSchema.index({ orderId: 1 });
+OrderItemSchema.index({ productId: 1 });
+OrderItemSchema.index({ orderId: 1, createdAt: 1 });
+
+================================================================================
+// FILE PATH: data\models\product.js
+================================================================================
+
+import mongoose from "mongoose";
+
+let Schema = mongoose.Schema;
+let String = Schema.Types.String;
+let Number = Schema.Types.Number;
+
+export const ProductSchema = new Schema(
+  {
+    name: {
+      type: String,
+      required: true,
+    },
+    description: String,
+    price: {
+      type: Number,
+      required: true,
+      min: 0,
+    },
+    originalPrice: Number,
+    sku: {
+      type: String,
+      unique: true,
+      required: true,
+    },
+    category: {
+      type: Schema.Types.ObjectId,
+      ref: 'Category',
+      required: true,
+    },
+    brand: {
+      type: Schema.Types.ObjectId,
+      ref: 'Brand', // Changed from String to ObjectId reference
+      required: true,
+    },
+    images: [String],
+    stock: {
+      type: Number,
+      default: 0,
+      min: 0,
+    },
+    isActive: {
+      type: Boolean,
+      default: true,
+    },
+    isFeatured: {
+      type: Boolean,
+      default: false,
+    },
+  },
+  {
+    collection: "products",
+    timestamps: true,
+  }
+);
+
+================================================================================
+// FILE PATH: data\models\user.js
+================================================================================
+
+// File: server/data/models/user.js
+// CẬP NHẬT User Schema để thêm các field cho forgot password
+
+import mongoose from "mongoose";
+
+let Schema = mongoose.Schema;
+let String = Schema.Types.String;
+
+export const UserSchema = new Schema(
+  {
+    username: {
+      type: String,
+      required: true,
+      unique: true,
+    },
+    email: {
+      type: String,
+      required: true,
+      unique: true,
+    },
+    password: {
+      type: String,
+      required: true,
+    },
+    firstName: String,
+    lastName: String,
+    avatarUrl: {
+      type: String,
+      default: null
+    },
+    role: {
+      type: String,
+      enum: ['admin', 'manager', 'customer'],
+      default: 'customer',
+    },
+    phone: String,
+    isActive: {
+      type: Boolean,
+      default: true,
+    },
+    
+
+    passwordResetOTP: {
+      type: String,
+      default: null
+    },
+    passwordResetOTPExpires: {
+      type: Date,
+      default: null
+    },
+    passwordResetEmail: {
+      type: String, // Email được dùng để reset (để tránh confusion)
+      default: null
+    },
+    
+    // Email verification (giữ lại nếu cần)
+    emailVerified: {
+      type: Boolean,
+      default: false
+    },
+    emailVerificationToken: {
+      type: String,
+      default: null
+    }
+  },
+  {
+    collection: "users",
+    timestamps: true,
+  }
+);
+
+================================================================================
+// FILE PATH: data\models\wishlist.js
+================================================================================
+
+import mongoose from "mongoose";
+
+const Schema = mongoose.Schema;
+
+export const WishlistSchema = new Schema(
+  {
+    userId: {
+      type: Schema.Types.ObjectId,
+      ref: 'User',
+      required: true,
+    },
+    productId: {
+      type: Schema.Types.ObjectId,
+      ref: 'Product',
+      required: true,
+    },
+  },
+  {
+    collection: "wishlists",
+    timestamps: true, // Tự động thêm createdAt và updatedAt
+  }
+);
+
+// Tạo một index kết hợp để đảm bảo một user chỉ có thể "thích" một sản phẩm một lần
+WishlistSchema.index({ userId: 1, productId: 1 }, { unique: true });
+
+================================================================================
+// FILE PATH: graphql\authentication.js
+================================================================================
+
+// File: server/graphql/authentication.js (HOÀN CHỈNH VÀ CLEAN)
+
+import bcrypt from "bcrypt";
+import jwt from "jsonwebtoken";
+import { GraphQLError } from "graphql";
+import { otpUtils } from "../utils/otpUtils.js";
+import { emailService } from "../services/emailService.js";
+
+import fs from "fs";
+import { dirname } from "path";
+import { fileURLToPath } from "url";
+import { v4 as uuidv4 } from "uuid";
+import path from "path"; 
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+
+export const typeDef = `
+  type LoginResult {
+    jwt: String!
+    user: UserInfo!
+  }
+
+  type UserInfo {
+    _id: ID!
+    username: String!
+    email: String!
+    firstName: String
+    lastName: String
+    role: String!
+    avatarUrl: String
+  }
+
+  type LoginResponse {
+    success: Boolean!
+    message: String!
+    data: LoginResult
+  }
+
+  type RegisterResponse {
+    success: Boolean!
+    message: String!
+    data: UserInfo
+  }
+
+  type GenericResponse {
+    success: Boolean!
+    message: String!
+  }
+
+  input LoginInput {
+    username: String!
+    password: String!
+  }
+
+  input RegisterInput {
+    username: String!
+    email: String!
+    password: String!
+    firstName: String!
+    lastName: String!
+    phone: String
+  }
+
+  input SendOTPInput {
+    email: String!
+  }
+
+  input VerifyOTPAndResetPasswordInput {
+    email: String!
+    otp: String!
+    newPassword: String!
+  }
+
+  input UpdateProfileInput {
+    firstName: String
+    lastName: String
+    phone: String
+  }
+
+  extend type Mutation {
+    login(input: LoginInput!): LoginResponse
+    register(input: RegisterInput!): RegisterResponse
+    sendPasswordResetOTP(input: SendOTPInput!): GenericResponse
+    verifyOTPAndResetPassword(input: VerifyOTPAndResetPasswordInput!): GenericResponse
+    updateProfile(input: UpdateProfileInput!): UserInfo!
+    updateAvatar(file: File!): UserInfo!
+  }
+
+  extend type Query {
+    me: UserInfo
+  }
+`;
+
+export const resolvers = {
+  Query: {
+    me: async (parent, args, context, info) => {
+      if (!context.user) {
+        throw new GraphQLError("Authentication required");
+      }
+      
+      const user = await context.db.users.findById(context.user.id);
+      if (!user) {
+        throw new GraphQLError("User not found");
+      }
+      
+      return {
+        _id: user._id,
+        username: user.username,
+        email: user.email,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        role: user.role,
+        avatarUrl: user.avatarUrl,
+      };
+    },
+  },
+
+  Mutation: {
+    updateProfile: async (parent, { input }, context, info) => {
+      if (!context.user) {
+        throw new GraphQLError("Authentication required");
+      }
+      const updateData = Object.fromEntries(
+        Object.entries(input).filter(([_, v]) => v != null)
+      );
+      if (Object.keys(updateData).length === 0) {
+        throw new GraphQLError("Nothing to update.");
+      }
+      const updatedUser = await context.db.users.updateById(context.user.id, updateData);
+      if (!updatedUser) {
+        throw new GraphQLError("Failed to update profile.");
+      }
+      return updatedUser;
+    },
+
+    updateAvatar: async (parent, { file }, context) => {
+      if (!context.user) {
+        throw new GraphQLError("Authentication required");
+      }
+      try {
+        const fileArrayBuffer = await file.arrayBuffer();
+        const originalName = file.name;
+        const fileExtension = path.extname(originalName);
+        const uniqueFilename = `avatar_${context.user.id}_${Date.now()}${fileExtension}`;
+        const uploadDir = path.join(__dirname, "../img/");
+        if (!fs.existsSync(uploadDir)) {
+          fs.mkdirSync(uploadDir, { recursive: true });
+        }
+        await fs.promises.writeFile(
+          path.join(uploadDir, uniqueFilename),
+          Buffer.from(fileArrayBuffer)
+        );
+        const fileUrl = `/img/${uniqueFilename}`;
+        const updatedUser = await context.db.users.updateById(context.user.id, {
+          avatarUrl: fileUrl
+        });
+        if (!updatedUser) {
+          throw new GraphQLError("Could not update user avatar in database.");
+        }
+        return updatedUser;
+      } catch (error) {
+        console.error("Update avatar error:", error);
+        throw new GraphQLError(`Failed to upload avatar: ${error.message}`);
+      }
+    }, 
+
+    login: async (parent, args, context, info) => {
+      const { username, password } = args.input;
+      
+      if (!username || username.length === 0 || !password || password.length === 0) {
+        return {
+          success: false,
+          message: "Username and password are required",
+        };
+      }
+
+      const user = await context.db.users.findOne(username);
+      if (!user) {
+        return {
+          success: false,
+          message: "Invalid username or password",
+        };
+      }
+
+      const isPasswordValid = await bcrypt.compare(password, user.password);
+      if (!isPasswordValid) {
+        return {
+          success: false,
+          message: "Invalid username or password",
+        };
+      }
+
+      if (!user.isActive) {
+        return {
+          success: false,
+          message: "Account is deactivated. Please contact support.",
+        };
+      }
+
+      const token = jwt.sign(
+        {
+          id: user._id,
+          username: user.username,
+          role: user.role,
+        },
+        process.env.JWT_SECRET,
+        {
+          expiresIn: "24h",
+        }
+      );
+
+      return {
+        success: true,
+        message: "Login successful",
+        data: {
+          jwt: token,
+          user: {
+            _id: user._id,
+            username: user.username,
+            email: user.email,
+            firstName: user.firstName,
+            lastName: user.lastName,
+            role: user.role,
+            avatarUrl: user.avatarUrl,
+          },
+        },
+      };
+    },
+
+    register: async (parent, args, context, info) => {
+      const { username, email, password, firstName, lastName, phone } = args.input;
+
+      const existingUserByUsername = await context.db.users.findOne(username);
+      if (existingUserByUsername) {
+        return {
+          success: false,
+          message: "Username already exists",
+        };
+      }
+
+      const existingUserByEmail = await context.db.users.findByEmail(email);
+      if (existingUserByEmail) {
+        return {
+          success: false,
+          message: "Email already exists",
+        };
+      }
+
+      if (password.length < 6) {
+        return {
+          success: false,
+          message: "Password must be at least 6 characters long",
+        };
+      }
+
+      const hashedPassword = await bcrypt.hash(password, 10);
+
+      const newUser = await context.db.users.create({
+        username,
+        email,
+        password: hashedPassword,
+        firstName,
+        lastName,
+        phone,
+        role: "customer",
+        isActive: true,
+      });
+
+      return {
+        success: true,
+        message: "Registration successful",
+        data: {
+          _id: newUser._id,
+          username: newUser.username,
+          email: newUser.email,
+          firstName: newUser.firstName,
+          lastName: newUser.lastName,
+          role: newUser.role,
+          avatarUrl: newUser.avatarUrl,
+        },
+      };
+    },
+
+
+    sendPasswordResetOTP: async (parent, args, context, info) => {
+      const { email } = args.input;
+
+      console.log('=== SEND OTP REQUEST ===');
+      console.log('Email:', email);
+
+      if (!email || !email.includes('@')) {
+        return {
+          success: false,
+          message: "Valid email address is required",
+        };
+      }
+
+      const user = await context.db.users.findByEmail(email);
+      console.log('User found:', user ? 'Yes' : 'No');
+      
+      if (!user) {
+        // ===== THAY ĐỔI: Trả về success false cho email không tồn tại =====
+        return {
+          success: false,
+          message: "Email không tồn tại trong hệ thống. Vui lòng kiểm tra lại.",
+        };
+        
+        // HOẶC nếu muốn giữ bảo mật, có thể delay và trả về như đã gửi:
+        // await new Promise(resolve => setTimeout(resolve, 2000)); // Delay 2s
+        // return {
+        //   success: true,
+        //   message: "Nếu email tồn tại, mã OTP đã được gửi.",
+        // };
+      }
+
+      if (!user.isActive) {
+        return {
+          success: false,
+          message: "Account is deactivated. Please contact support.",
+        };
+      }
+
+      const otp = otpUtils.generateOTP();
+      const otpExpires = otpUtils.generateOTPExpiry();
+
+      console.log('Generated OTP:', otp);
+      console.log('OTP expires at:', otpExpires);
+
+      try {
+        const updateResult = await context.db.users.savePasswordResetOTP(email, otp, otpExpires);
+        console.log('OTP saved to DB:', updateResult.modifiedCount > 0 ? 'Yes' : 'No');
+
+        await emailService.sendPasswordResetOTP(email, otp, user.firstName || user.username);
+        console.log('OTP email sent successfully');
+
+        return {
+          success: true,
+          message: "OTP has been sent to your email. Please check your inbox.", // ← Message này sẽ được frontend check
+        };
+
+      } catch (error) {
+        console.error('Send OTP error:', error);
+        return {
+          success: false,
+          message: "Failed to send OTP. Please try again later.",
+        };
+      }
+    },
+
+    verifyOTPAndResetPassword: async (parent, args, context, info) => {
+      const { email, otp, newPassword } = args.input;
+
+      console.log('=== VERIFY OTP AND RESET PASSWORD ===');
+      console.log('Email:', email);
+      console.log('OTP:', otp);
+
+      if (!email || !otp || !newPassword) {
+        return {
+          success: false,
+          message: "Email, OTP, and new password are required",
+        };
+      }
+
+      if (!otpUtils.isValidOTPFormat(otp)) {
+        return {
+          success: false,
+          message: "OTP must be 6 digits",
+        };
+      }
+
+      if (newPassword.length < 6) {
+        return {
+          success: false,
+          message: "Password must be at least 6 characters long",
+        };
+      }
+
+      try {
+        const user = await context.db.users.findByValidOTP(email, otp);
+        console.log('User with valid OTP found:', user ? 'Yes' : 'No');
+
+        if (!user) {
+          return {
+            success: false,
+            message: "Invalid or expired OTP",
+          };
+        }
+
+        const hashedPassword = await bcrypt.hash(newPassword, 10);
+        const updateResult = await context.db.users.resetPasswordAndClearOTP(user._id, hashedPassword);
+        console.log('Password reset successful:', updateResult.modifiedCount > 0 ? 'Yes' : 'No');
+
+        return {
+          success: true,
+          message: "Password has been successfully reset. You can now login with your new password.",
+        };
+
+      } catch (error) {
+        console.error('Verify OTP and reset password error:', error);
+        return {
+          success: false,
+          message: "Failed to reset password. Please try again later.",
+        };
+      }
+    },
+  },
+};
+
+================================================================================
+// FILE PATH: graphql\brands.js
+================================================================================
+
+export const typeDef = `
+  type Brand {
+    _id: ID!
+    name: String!
+    slug: String!
+    description: String
+    logo: String
+    banner: String
+    website: String
+    country: String
+    foundedYear: Int
+    categories: [Category]
+    isActive: Boolean
+    isFeatured: Boolean
+    seoTitle: String
+    seoDescription: String
+    createdAt: String
+    updatedAt: String
+  }
+
+  enum BrandsOrderBy {
+    ID_ASC
+    ID_DESC
+    NAME_ASC
+    NAME_DESC
+    FOUNDED_ASC
+    FOUNDED_DESC
+    CREATED_ASC
+    CREATED_DESC
+  }
+
+  type BrandConnection {
+    nodes: [Brand]
+    totalCount: Int
+    hasNextPage: Boolean
+    hasPreviousPage: Boolean
+  }
+
+  input BrandConditionInput {
+    name: String
+    country: String
+    categories: [ID]
+    isActive: Boolean
+    isFeatured: Boolean
+  }
+
+  extend type Query {
+    brands(
+      first: Int = 10,
+      offset: Int = 0,
+      orderBy: BrandsOrderBy = CREATED_DESC,
+      condition: BrandConditionInput
+    ): BrandConnection
+    
+    brand(id: ID, slug: String): Brand
+    brandsByCategory(categoryId: ID!): [Brand]
+    allBrands: [Brand]
+    featuredBrands: [Brand]
+  }
+  
+  extend type Mutation {
+    createBrand(input: BrandInput!): Brand
+    updateBrand(id: ID!, input: BrandInput!): Brand
+    deleteBrand(id: ID!): ID
+  }
+  
+  input BrandInput {
+    name: String!
+    description: String
+    logo: String
+    banner: String
+    website: String
+    country: String
+    foundedYear: Int
+    categories: [ID]
+    isActive: Boolean = true
+    isFeatured: Boolean = false
+    seoTitle: String
+    seoDescription: String
+  }
+`;
+
+export const resolvers = {
+  Query: {
+    brands: async (parent, args, context, info) => {
+      console.log('Brands query args:', args);
+      const result = await context.db.brands.getAll(args);
+      
+      const { first = 10, offset = 0 } = args;
+      const hasNextPage = offset + first < result.totalCount;
+      const hasPreviousPage = offset > 0;
+      
+      return {
+        nodes: result.items,
+        totalCount: result.totalCount,
+        hasNextPage,
+        hasPreviousPage
+      };
+    },
+    
+    brand: async (parent, args, context, info) => {
+      if (args.id) {
+        return await context.db.brands.findById(args.id);
+      }
+      if (args.slug) {
+        return await context.db.brands.findBySlug(args.slug);
+      }
+      throw new Error('Either id or slug must be provided');
+    },
+    
+    brandsByCategory: async (parent, args, context, info) => {
+      return await context.db.brands.getByCategory(args.categoryId);
+    },
+    
+    allBrands: async (parent, args, context, info) => {
+      return await context.db.brands.getAllSimple();
+    },
+    
+    featuredBrands: async (parent, args, context, info) => {
+      return await context.db.brands.getFeatured();
+    },
+  },
+  
+  Mutation: {
+    createBrand: async (parent, args, context, info) => {
+      try {
+        console.log('Creating brand with input:', args.input);
+        
+        const { name } = args.input;
+        
+        if (!name) {
+          throw new Error('Missing required field: name');
+        }
+
+        const existingBrand = await context.db.brands.findByName(name);
+        if (existingBrand) {
+          throw new Error('Brand name already exists');
+        }
+
+        if (args.input.categories && args.input.categories.length > 0) {
+          for (const categoryId of args.input.categories) {
+            const categoryExists = await context.db.categories.findById(categoryId);
+            if (!categoryExists) {
+              throw new Error(`Category with ID ${categoryId} not found`);
+            }
+          }
+        }
+
+        const brand = await context.db.brands.create(args.input);
+        console.log('Brand created successfully:', brand._id);
+        
+        return brand;
+      } catch (error) {
+        console.error('Error creating brand:', error);
+        throw error;
+      }
+    },
+    
+    updateBrand: async (parent, args, context, info) => {
+      try {
+        console.log('Updating brand:', args.id, 'with input:', args.input);
+        
+        const existingBrand = await context.db.brands.findById(args.id);
+        if (!existingBrand) {
+          throw new Error('Brand not found');
+        }
+
+        if (args.input.name && args.input.name !== existingBrand.name) {
+          const brandWithSameName = await context.db.brands.findByName(args.input.name);
+          if (brandWithSameName && brandWithSameName._id.toString() !== args.id) {
+            throw new Error('Brand name already exists');
+          }
+        }
+
+        if (args.input.categories && args.input.categories.length > 0) {
+          for (const categoryId of args.input.categories) {
+            const categoryExists = await context.db.categories.findById(categoryId);
+            if (!categoryExists) {
+              throw new Error(`Category with ID ${categoryId} not found`);
+            }
+          }
+        }
+
+        const brand = await context.db.brands.updateById(args.id, args.input);
+        console.log('Brand updated successfully:', brand._id);
+        
+        return brand;
+      } catch (error) {
+        console.error('Error updating brand:', error);
+        throw error;
+      }
+    },
+    
+    deleteBrand: async (parent, args, context, info) => {
+      try {
+        console.log('Deleting brand:', args.id);
+        
+        const existingBrand = await context.db.brands.findById(args.id);
+        if (!existingBrand) {
+          throw new Error('Brand not found');
+        }
+
+        const productsUsingBrand = await context.db.products.getByBrand(args.id);
+        if (productsUsingBrand && productsUsingBrand.length > 0) {
+          throw new Error(`Cannot delete brand. ${productsUsingBrand.length} products are using this brand.`);
+        }
+
+        const deletedId = await context.db.brands.deleteById(args.id);
+        console.log('Brand deleted successfully:', deletedId);
+        
+        return deletedId;
+      } catch (error) {
+        console.error('Error deleting brand:', error);
+        throw error;
+      }
+    },
+  },
+};
+
+================================================================================
+// FILE PATH: graphql\carts.js
+================================================================================
+
+export const typeDef = `
+  type CartItem {
+    _id: ID!
+    userId: ID!
+    product: Product!
+    quantity: Int!
+    unitPrice: Float!
+    productName: String!
+    totalPrice: Float!
+    addedAt: String!
+  }
+
+  type CartSummary {
+    items: [CartItem!]!
+    totalItems: Int!
+    subtotal: Float!
+  }
+
+  input AddToCartInput {
+    productId: ID!
+    quantity: Int! = 1
+  }
+
+  input UpdateCartInput {
+    productId: ID!
+    quantity: Int!
+  }
+
+  extend type Query {
+    getCart: CartSummary!
+    getCartItemCount: Int!
+  }
+
+  extend type Mutation {
+    addToCart(input: AddToCartInput!): CartItem!
+    updateCartItem(input: UpdateCartInput!): CartItem!
+    removeFromCart(productId: ID!): Boolean!
+    clearCart: Boolean!
+  }
+`;
+
+export const resolvers = {
+  CartItem: {
+    // Resolver để tính totalPrice
+    totalPrice: (parent) => {
+      return parent.quantity * parent.unitPrice;
+    },
+    
+    // Populate product information
+    product: async (parent, args, context) => {
+      return await context.db.products.findById(parent.productId);
+    }
+  },
+
+  Query: {
+    getCart: async (parent, args, context, info) => {
+      if (!context.user) {
+        throw new Error("Authentication required");
+      }
+
+      console.log('Getting cart for user:', context.user.id);
+      
+      const cartItems = await context.db.carts.getByUserId(context.user.id);
+      
+      const totalItems = cartItems.reduce((sum, item) => sum + item.quantity, 0);
+      const subtotal = cartItems.reduce((sum, item) => sum + (item.quantity * item.unitPrice), 0);
+
+      return {
+        items: cartItems,
+        totalItems,
+        subtotal
+      };
+    },
+
+    getCartItemCount: async (parent, args, context, info) => {
+      if (!context.user) {
+        return 0;
+      }
+
+      const cartItems = await context.db.carts.getByUserId(context.user.id);
+      return cartItems.reduce((sum, item) => sum + item.quantity, 0);
+    }
+  },
+
+  Mutation: {
+    addToCart: async (parent, args, context, info) => {
+      if (!context.user) {
+        throw new Error("Authentication required");
+      }
+
+      const { productId, quantity } = args.input;
+
+      console.log('Adding to cart:', { userId: context.user.id, productId, quantity });
+
+      // Kiểm tra product có tồn tại không
+      const product = await context.db.products.findById(productId);
+      if (!product) {
+        throw new Error("Product not found");
+      }
+
+      // Kiểm tra stock
+      if (product.stock < quantity) {
+        throw new Error(`Only ${product.stock} items available in stock`);
+      }
+
+      // Kiểm tra product đã có trong cart chưa
+      const existingCartItem = await context.db.carts.findByUserAndProduct(context.user.id, productId);
+
+      if (existingCartItem) {
+        // Nếu đã có, cập nhật quantity
+        const newQuantity = existingCartItem.quantity + quantity;
+        
+        // Kiểm tra stock cho quantity mới
+        if (product.stock < newQuantity) {
+          throw new Error(`Cannot add ${quantity} more. Only ${product.stock - existingCartItem.quantity} items available`);
+        }
+
+        return await context.db.carts.updateQuantity(context.user.id, productId, newQuantity);
+      } else {
+        // Nếu chưa có, tạo mới
+        const cartData = {
+          userId: context.user.id,
+          productId: productId,
+          quantity: quantity,
+          unitPrice: product.price,
+          productName: product.name
+        };
+
+        return await context.db.carts.create(cartData);
+      }
+    },
+
+    updateCartItem: async (parent, args, context, info) => {
+      if (!context.user) {
+        throw new Error("Authentication required");
+      }
+
+      const { productId, quantity } = args.input;
+
+      console.log('Updating cart item:', { userId: context.user.id, productId, quantity });
+
+      if (quantity <= 0) {
+        throw new Error("Quantity must be greater than 0");
+      }
+
+      // Kiểm tra product có tồn tại không
+      const product = await context.db.products.findById(productId);
+      if (!product) {
+        throw new Error("Product not found");
+      }
+
+      // Kiểm tra stock
+      if (product.stock < quantity) {
+        throw new Error(`Only ${product.stock} items available in stock`);
+      }
+
+      // Kiểm tra cart item có tồn tại không
+      const existingCartItem = await context.db.carts.findByUserAndProduct(context.user.id, productId);
+      if (!existingCartItem) {
+        throw new Error("Item not found in cart");
+      }
+
+      return await context.db.carts.updateQuantity(context.user.id, productId, quantity);
+    },
+
+    removeFromCart: async (parent, args, context, info) => {
+      if (!context.user) {
+        throw new Error("Authentication required");
+      }
+
+      console.log('Removing from cart:', { userId: context.user.id, productId: args.productId });
+
+      const result = await context.db.carts.removeItem(context.user.id, args.productId);
+      return result;
+    },
+
+    clearCart: async (parent, args, context, info) => {
+      if (!context.user) {
+        throw new Error("Authentication required");
+      }
+
+      console.log('Clearing cart for user:', context.user.id);
+
+      const result = await context.db.carts.clearByUserId(context.user.id);
+      return result;
+    }
+  }
+};
+
+================================================================================
+// FILE PATH: graphql\categories.js
+================================================================================
+
+export const typeDef = `
+  type Category {
+    _id: ID!
+    name: String!
+    description: String
+    image: String
+    isActive: Boolean
+    createdAt: String
+    updatedAt: String
+  }
+
+  enum CategoriesOrderBy {
+    ID_ASC
+    ID_DESC
+    NAME_ASC
+    NAME_DESC
+    CREATED_ASC
+    CREATED_DESC
+  }
+
+  type CategoryConnection {
+    nodes: [Category]
+    totalCount: Int
+    hasNextPage: Boolean
+    hasPreviousPage: Boolean
+  }
+
+  input CategoryConditionInput {
+    name: String
+    isActive: Boolean
+  }
+
+  extend type Query {
+    categories(
+      first: Int = 10,
+      offset: Int = 0,
+      orderBy: CategoriesOrderBy = CREATED_DESC,
+      condition: CategoryConditionInput
+    ): CategoryConnection
+    
+    category(id: ID!): Category
+    
+    # Backward compatibility - simple list
+    allCategories: [Category]
+  }
+  
+  extend type Mutation {
+    createCategory(input: CategoryInput!): Category
+    updateCategory(id: ID!, input: CategoryInput!): Category
+    deleteCategory(id: ID!): ID
+  }
+  
+  input CategoryInput {
+    name: String!
+    description: String
+    image: String
+    isActive: Boolean = true
+  }
+`;
+
+export const resolvers = {
+  Query: {
+    categories: async (parent, args, context, info) => {
+      console.log('Categories query args:', args);
+      const result = await context.db.categories.getAll(args);
+      
+      const { first = 10, offset = 0 } = args;
+      const hasNextPage = offset + first < result.totalCount;
+      const hasPreviousPage = offset > 0;
+      
+      return {
+        nodes: result.items,
+        totalCount: result.totalCount,
+        hasNextPage,
+        hasPreviousPage
+      };
+    },
+    
+    category: async (parent, args, context, info) => {
+      return await context.db.categories.findById(args.id);
+    },
+    
+    // Simple list for backward compatibility
+    allCategories: async (parent, args, context, info) => {
+      const result = await context.db.categories.getAllSimple();
+      return result;
+    },
+  },
+  
+  Mutation: {
+    createCategory: async (parent, args, context, info) => {
+      return await context.db.categories.create(args.input);
+    },
+    updateCategory: async (parent, args, context, info) => {
+      return await context.db.categories.updateById(args.id, args.input);
+    },
+    deleteCategory: async (parent, args, context, info) => {
+      return await context.db.categories.deleteById(args.id);
+    },
+  },
+};
+
+================================================================================
+// FILE PATH: graphql\hello.js
+================================================================================
+
+import { GraphQLError } from "graphql";
+import _ from "lodash";
+
+export const typeDef = `
+  extend type Query {
+    hello: String
+  }
+`;
+
+export const resolvers = {
+  Query: {
+    hello: (parent, args, context, info) => {
+      if (!_.has(context, "secret")) {
+        throw new GraphQLError("A secret is required to access SmartShop.");
+      }
+      return `Hello SmartShop! Your secret: ${context.secret}`;
+    },
+  },
+};
+
+================================================================================
+// FILE PATH: graphql\orders.js
+================================================================================
+
+// File: server/graphql/orders.js - FIXED SYNTAX VERSION
+
+import mongoose from "mongoose";
+
+export const typeDef = `
+  type Order {
+    _id: ID!
+    orderNumber: String!
+    userId: ID!
+    user: UserInfo
+    customerInfo: CustomerInfo!
+    status: OrderStatus!
+    paymentMethod: PaymentMethod!
+    paymentStatus: PaymentStatus!
+    subtotal: Float!
+    totalAmount: Float!
+    orderDate: String!
+    confirmedAt: String
+    processedAt: String
+    shippedAt: String
+    deliveredAt: String
+    cancelledAt: String
+    customerNotes: String
+    adminNotes: String
+    items: [OrderItem!]!
+  }
+
+  type OrderItem {
+    _id: ID!
+    productId: ID!
+    productName: String!
+    productSku: String!
+    quantity: Int!
+    unitPrice: Float!
+    totalPrice: Float!
+    productSnapshot: ProductSnapshot
+    product: Product
+  }
+
+  type ProductSnapshot {
+    description: String
+    images: [String]
+    brand: String
+    category: String
+  }
+
+  type CustomerInfo {
+    fullName: String!
+    phone: String!
+    address: String!
+    city: String!
+    notes: String
+  }
+
+  enum OrderStatus {
+    pending
+    confirmed
+    processing
+    shipping
+    delivered
+    cancelled
+  }
+
+  enum PaymentMethod {
+    cod
+    bank_transfer
+  }
+
+  enum PaymentStatus {
+    pending
+    paid
+    failed
+    refunded
+  }
+
+  enum OrdersOrderBy {
+    DATE_ASC
+    DATE_DESC
+    STATUS_ASC
+    STATUS_DESC
+    TOTAL_ASC
+    TOTAL_DESC
+  }
+
+  type OrderConnection {
+    nodes: [Order!]!
+    totalCount: Int!
+    hasNextPage: Boolean!
+    hasPreviousPage: Boolean!
+  }
+
+  input CreateOrderInput {
+    customerInfo: CustomerInfoInput!
+    paymentMethod: PaymentMethod!
+    customerNotes: String
+  }
+
+  input CustomerInfoInput {
+    fullName: String!
+    phone: String!
+    address: String!
+    city: String!
+    notes: String
+  }
+
+  input OrderConditionInput {
+    status: OrderStatus
+    paymentStatus: PaymentStatus
+    paymentMethod: PaymentMethod
+    userId: ID
+    dateFrom: String
+    dateTo: String
+  }
+
+  type OrderStats {
+    totalOrders: Int!
+    pendingOrders: Int!
+    confirmedOrders: Int!
+    shippingOrders: Int!
+    deliveredOrders: Int!
+    cancelledOrders: Int!
+    totalRevenue: Float!
+    todayOrders: Int!
+  }
+
+  extend type Query {
+    # Customer queries
+    getMyOrders(first: Int, offset: Int, orderBy: OrdersOrderBy): OrderConnection!
+    getMyOrder(orderNumber: String!): Order
+    
+    # Admin queries  
+    getAllOrders(first: Int, offset: Int, orderBy: OrdersOrderBy, condition: OrderConditionInput, search: String): OrderConnection!
+    getOrder(orderNumber: String!): Order
+    getOrderStats: OrderStats!
+  }
+
+  extend type Mutation {
+    # Customer mutations
+    createOrderFromCart(input: CreateOrderInput!): Order!
+    
+    # Admin mutations
+    updateOrderStatus(orderNumber: String!, status: OrderStatus!, adminNotes: String): Order!
+    updatePaymentStatus(orderNumber: String!, paymentStatus: PaymentStatus!): Order!
+    cancelOrder(orderNumber: String!, reason: String): Order!
+  }
+`;
+
+export const resolvers = {
+  Order: {
+    user: async (parent, args, context) => {
+      try {
+        console.log('🔍 Order.user resolver - parent.userId:', parent.userId);
+        if (parent.userId) {
+          const user = await context.db.users.findById(parent.userId);
+          console.log('👤 Order.user resolved:', user ? 'Found' : 'Not found');
+          return user;
+        }
+        return null;
+      } catch (error) {
+        console.error('❌ Error resolving Order.user:', error);
+        return null;
+      }
+    },
+    
+    items: async (parent, args, context) => {
+      try {
+        console.log('🔍 Order.items resolver - parent._id:', parent._id);
+        
+        if (!parent._id) {
+          console.log('❌ Order _id is missing');
+          return [];
+        }
+        
+        // Check if orderItems method exists
+        if (!context.db.orderItems) {
+          console.error('❌ context.db.orderItems is undefined');
+          console.log('🔍 Available db methods:', Object.keys(context.db));
+          return [];
+        }
+        
+        if (!context.db.orderItems.getByOrderId) {
+          console.error('❌ context.db.orderItems.getByOrderId is undefined');
+          console.log('🔍 Available orderItems methods:', Object.keys(context.db.orderItems));
+          return [];
+        }
+        
+        console.log('🔍 Calling context.db.orderItems.getByOrderId with:', parent._id);
+        const items = await context.db.orderItems.getByOrderId(parent._id);
+        console.log(`📦 Order items resolved: ${items?.length || 0} items`);
+        
+        return items || [];
+      } catch (error) {
+        console.error('❌ Error resolving order items:', error);
+        console.error('❌ Full error stack:', error.stack);
+        return [];
+      }
+    }
+  },
+
+  OrderItem: {
+    product: async (parent, args, context) => {
+      try {
+        console.log('🔍 OrderItem.product resolver - productId:', parent.productId);
+        
+        if (!parent.productId) {
+          console.log('❌ OrderItem productId is null/undefined');
+          return null;
+        }
+        
+        if (!mongoose.Types.ObjectId.isValid(parent.productId)) {
+          console.log('❌ Invalid productId format:', parent.productId);
+          return null;
+        }
+        
+        const product = await context.db.products.findById(parent.productId);
+        console.log('📦 OrderItem.product resolved:', product ? 'Found' : 'Not found');
+        
+        return product;
+      } catch (error) {
+        console.error('❌ Error resolving OrderItem product:', error);
+        return null;
+      }
+    }
+  },
+
+  Query: {
+    getMyOrders: async (parent, args, context, info) => {
+      try {
+        if (!context.user) {
+          throw new Error("Authentication required");
+        }
+
+        console.log('🔍 getMyOrders - userId:', context.user.id);
+        
+        const result = await context.db.orders.getByUserId(context.user.id, args);
+        
+        const { first = 10, offset = 0 } = args;
+        const hasNextPage = offset + first < result.totalCount;
+        const hasPreviousPage = offset > 0;
+        
+        return {
+          nodes: result.items || [],
+          totalCount: result.totalCount || 0,
+          hasNextPage,
+          hasPreviousPage
+        };
+      } catch (error) {
+        console.error('❌ Error in getMyOrders:', error);
+        throw new Error(`Failed to fetch orders: ${error.message}`);
+      }
+    },
+
+    getMyOrder: async (parent, args, context, info) => {
+      try {
+        if (!context.user) {
+          throw new Error("Authentication required");
+        }
+
+        console.log('🔍 getMyOrder - orderNumber:', args.orderNumber);
+        console.log('🔍 getMyOrder - userId:', context.user.id);
+
+        const order = await context.db.orders.getByOrderNumber(args.orderNumber);
+        
+        if (!order) {
+          console.log('❌ Order not found:', args.orderNumber);
+          throw new Error("Order not found");
+        }
+
+        console.log('📦 Order found:', order.orderNumber);
+        console.log('🔍 Order userId:', order.userId);
+        console.log('🔍 Current user:', context.user.id);
+
+        // Convert ObjectId to string for comparison
+        let orderUserId;
+        if (typeof order.userId === 'object' && order.userId._id) {
+          // If userId is populated user object
+          orderUserId = order.userId._id.toString();
+        } else {
+          // If userId is ObjectId
+          orderUserId = order.userId.toString();
+        }
+
+        if (orderUserId !== context.user.id) {
+          console.log('❌ Access denied - order belongs to:', orderUserId, 'user is:', context.user.id);
+          throw new Error("Access denied");
+        }
+
+        console.log('✅ Order access granted, returning order');
+        return order;
+      } catch (error) {
+        console.error('❌ Error in getMyOrder:', error);
+        console.error('❌ Full error stack:', error.stack);
+        throw error;
+      }
+    },
+
+    getAllOrders: async (parent, args, context, info) => {
+      try {
+        console.log('🔍 getAllOrders - args:', args);
+        
+        const result = await context.db.orders.getAll({
+          first: args.first,
+          offset: args.offset,
+          orderBy: args.orderBy,
+          condition: args.condition,
+          search: args.search
+        });
+        
+        const { first = 10, offset = 0 } = args;
+        const hasNextPage = offset + first < result.totalCount;
+        const hasPreviousPage = offset > 0;
+        
+        return {
+          nodes: result.items || [],
+          totalCount: result.totalCount || 0,
+          hasNextPage,
+          hasPreviousPage
+        };
+      } catch (error) {
+        console.error('❌ Error in getAllOrders:', error);
+        throw new Error(`Failed to fetch orders: ${error.message}`);
+      }
+    },
+
+    getOrder: async (parent, args, context, info) => {
+      try {
+        console.log('🔍 getOrder - orderNumber:', args.orderNumber);
+        return await context.db.orders.getByOrderNumber(args.orderNumber);
+      } catch (error) {
+        console.error('❌ Error in getOrder:', error);
+        throw new Error(`Failed to fetch order: ${error.message}`);
+      }
+    },
+
+    getOrderStats: async (parent, args, context, info) => {
+      try {
+        console.log('🔍 getOrderStats called');
+        return await context.db.orders.getStats();
+      } catch (error) {
+        console.error('❌ Error in getOrderStats:', error);
+        throw new Error(`Failed to fetch order stats: ${error.message}`);
+      }
+    }
+  },
+
+  Mutation: {
+    createOrderFromCart: async (parent, args, context, info) => {
+      try {
+        if (!context.user) {
+          throw new Error("Authentication required");
+        }
+
+        console.log('🔍 createOrderFromCart - userId:', context.user.id);
+        console.log('🔍 createOrderFromCart - input:', JSON.stringify(args.input, null, 2));
+
+        // Validate cart
+        const cartValidation = await context.db.carts.validateCart(context.user.id);
+        
+        if (!cartValidation.isValid) {
+          throw new Error(`Cart validation failed: ${cartValidation.errors.join(', ')}`);
+        }
+
+        if (cartValidation.validItems.length === 0) {
+          throw new Error('Cart is empty');
+        }
+
+        // Create order
+        const order = await context.db.orders.createFromCart(context.user.id, args.input);
+        
+        console.log('✅ Order created successfully:', order.orderNumber);
+        
+        return order;
+      } catch (error) {
+        console.error('❌ Error creating order:', error);
+        throw error;
+      }
+    },
+
+    updateOrderStatus: async (parent, args, context, info) => {
+      try {
+        console.log('🔍 updateOrderStatus:', args);
+        
+        const order = await context.db.orders.updateStatus(
+          args.orderNumber, 
+          args.status, 
+          args.adminNotes
+        );
+        
+        if (!order) {
+          throw new Error('Order not found');
+        }
+        
+        return order;
+      } catch (error) {
+        console.error('❌ Error updating order status:', error);
+        throw error;
+      }
+    },
+
+    updatePaymentStatus: async (parent, args, context, info) => {
+      try {
+        console.log('🔍 updatePaymentStatus:', args);
+        
+        const order = await context.db.orders.updatePaymentStatus(
+          args.orderNumber, 
+          args.paymentStatus
+        );
+        
+        if (!order) {
+          throw new Error('Order not found');
+        }
+        
+        return order;
+      } catch (error) {
+        console.error('❌ Error updating payment status:', error);
+        throw error;
+      }
+    },
+
+    // ✅ FIXED: Properly formatted cancelOrder resolver
+    cancelOrder: async (parent, args, context, info) => {
+      try {
+        if (!context.user) {
+          throw new Error("Authentication required");
+        }
+
+        console.log('🔍 cancelOrder - orderNumber:', args.orderNumber);
+        console.log('🔍 cancelOrder - user:', context.user.username, '- role:', context.user.role);
+
+        // Get the order first to check ownership and status
+        const order = await context.db.orders.getByOrderNumber(args.orderNumber);
+        
+        if (!order) {
+          throw new Error('Order not found');
+        }
+
+        // Check ownership for customers
+        if (context.user.role === 'customer') {
+          // Convert ObjectId to string for comparison
+          let orderUserId;
+          if (typeof order.userId === 'object' && order.userId._id) {
+            orderUserId = order.userId._id.toString();
+          } else {
+            orderUserId = order.userId.toString();
+          }
+
+          if (orderUserId !== context.user.id) {
+            throw new Error('You can only cancel your own orders');
+          }
+
+          // Check if order can be cancelled (only pending or confirmed)
+          if (!['pending', 'confirmed'].includes(order.status)) {
+            throw new Error('This order cannot be cancelled anymore');
+          }
+        }
+
+        // Admin and Manager can cancel any order
+        console.log('✅ Order cancellation authorized');
+        
+        // Cancel the order
+        const cancelledOrder = await context.db.orders.cancel(
+          args.orderNumber, 
+          args.reason || (context.user.role === 'customer' ? 'Khách hàng yêu cầu hủy đơn' : args.reason)
+        );
+        
+        if (!cancelledOrder) {
+          throw new Error('Failed to cancel order');
+        }
+        
+        console.log('✅ Order cancelled successfully:', args.orderNumber);
+        return cancelledOrder;
+      } catch (error) {
+        console.error('❌ Error cancelling order:', error);
+        throw error;
+      }
+    }
+  }
+};
+
+================================================================================
+// FILE PATH: graphql\products.js
+================================================================================
+
+export const typeDef = `
+  type Product {
+    _id: ID!
+    name: String!
+    description: String
+    price: Float!
+    originalPrice: Float
+    sku: String!
+    category: Category!
+    brand: Brand!
+    images: [String]
+    stock: Int!
+    isActive: Boolean
+    isFeatured: Boolean
+    createdAt: String
+    updatedAt: String
+  }
+
+  enum ProductsOrderBy {
+    ID_ASC
+    ID_DESC
+    NAME_ASC
+    NAME_DESC
+    PRICE_ASC
+    PRICE_DESC
+    STOCK_ASC
+    STOCK_DESC
+    CREATED_ASC
+    CREATED_DESC
+  }
+
+  type ProductConnection {
+    nodes: [Product]
+    totalCount: Int
+    hasNextPage: Boolean
+    hasPreviousPage: Boolean
+  }
+
+  input RangeConditionInput {
+    min: Float
+    max: Float
+  }
+
+  input ProductConditionInput {
+    name: String
+    brand: ID!
+    category: ID
+    price: RangeConditionInput
+    stock: RangeConditionInput
+    isActive: Boolean
+    isFeatured: Boolean
+  }
+
+  extend type Query {
+    products(
+      first: Int = 10,
+      offset: Int = 0,
+      orderBy: ProductsOrderBy = CREATED_DESC,
+      condition: ProductConditionInput
+    ): ProductConnection
+    
+    product(id: ID!): Product
+    
+    # Backward compatibility - simple lists
+    allProducts: [Product]
+    featuredProducts: [Product]
+    productsByCategory(categoryId: ID!): [Product]
+    productsByBrand(brandId: ID!): [Product]
+    productsByBrandAndCategory(brandId: ID!, categoryId: ID!): [Product]
+    
+    # Search products
+    searchProducts(
+      query: String!,
+      first: Int = 10,
+      offset: Int = 0,
+      orderBy: ProductsOrderBy = CREATED_DESC
+    ): ProductConnection
+  }
+  
+  extend type Mutation {
+    createProduct(input: ProductInput!): Product
+    updateProduct(id: ID!, input: ProductInput!): Product
+    deleteProduct(id: ID!): ID
+  }
+  
+  input ProductInput {
+    name: String!
+    description: String
+    price: Float!
+    originalPrice: Float
+    sku: String!
+    category: ID!
+    brand: ID!
+    images: [String]
+    stock: Int!
+    isActive: Boolean = true
+    isFeatured: Boolean = false
+  }
+`;
+
+export const resolvers = {
+  Query: {
+    products: async (parent, args, context, info) => {
+      console.log('Products query args:', args);
+      const result = await context.db.products.getAll(args);
+      
+      const { first = 10, offset = 0 } = args;
+      const hasNextPage = offset + first < result.totalCount;
+      const hasPreviousPage = offset > 0;
+      
+      return {
+        nodes: result.items,
+        totalCount: result.totalCount,
+        hasNextPage,
+        hasPreviousPage
+      };
+    },
+    
+    product: async (parent, args, context, info) => {
+      return await context.db.products.findById(args.id);
+    },
+    
+    searchProducts: async (parent, args, context, info) => {
+      console.log('Search products args:', args);
+      const result = await context.db.products.search(args);
+      
+      const { first = 10, offset = 0 } = args;
+      const hasNextPage = offset + first < result.totalCount;
+      const hasPreviousPage = offset > 0;
+      
+      return {
+        nodes: result.items,
+        totalCount: result.totalCount,
+        hasNextPage,
+        hasPreviousPage
+      };
+    },
+    
+    // Simple lists for backward compatibility
+    allProducts: async (parent, args, context, info) => {
+      return await context.db.products.getAllSimple();
+    },
+    
+    featuredProducts: async (parent, args, context, info) => {
+      return await context.db.products.getFeatured();
+    },
+    
+    productsByCategory: async (parent, args, context, info) => {
+      return await context.db.products.getByCategory(args.categoryId);
+    },
+    productsByBrand: async (parent, args, context, info) => {
+      return await context.db.products.getByBrand(args.brandId);
+    },
+    productsByBrandAndCategory: async (parent, args, context, info) => {
+      return await context.db.products.getByBrandAndCategory(args.brandId, args.categoryId);
+    },
+    productsByBrandAndCategory: async (parent, args, context, info) => {
+      return await context.db.products.getByBrandAndCategory(args.brandId, args.categoryId);
+    }
+  },
+  
+  Mutation: {
+    createProduct: async (parent, args, context, info) => {
+      try {
+        console.log('Creating product with input:', args.input);
+        
+        // Validate required fields
+        const { name, price, sku, category, stock } = args.input;
+        
+        if (!name || !price || !sku || !category || stock === undefined) {
+          throw new Error('Missing required fields: name, price, sku, category, stock');
+        }
+
+        // Check if category exists
+        const categoryExists = await context.db.categories.findById(category);
+        if (!categoryExists) {
+          throw new Error('Category not found');
+        }
+
+        // Check if SKU is unique
+        const existingProduct = await context.db.products.getAllSimple();
+        const skuExists = existingProduct.find(p => p.sku === sku);
+        if (skuExists) {
+          throw new Error('SKU already exists');
+        }
+
+        const product = await context.db.products.create(args.input);
+        console.log('Product created successfully:', product._id);
+        
+        return product;
+      } catch (error) {
+        console.error('Error creating product:', error);
+        throw error;
+      }
+    },
+    
+    updateProduct: async (parent, args, context, info) => {
+      try {
+        console.log('Updating product:', args.id, 'with input:', args.input);
+        
+        // Check if product exists
+        const existingProduct = await context.db.products.findById(args.id);
+        if (!existingProduct) {
+          throw new Error('Product not found');
+        }
+
+        // If category is being updated, check if it exists
+        if (args.input.category) {
+          const categoryExists = await context.db.categories.findById(args.input.category);
+          if (!categoryExists) {
+            throw new Error('Category not found');
+          }
+        }
+
+        // If SKU is being updated, check uniqueness
+        if (args.input.sku && args.input.sku !== existingProduct.sku) {
+          const allProducts = await context.db.products.getAllSimple();
+          const skuExists = allProducts.find(p => p.sku === args.input.sku && p._id.toString() !== args.id);
+          if (skuExists) {
+            throw new Error('SKU already exists');
+          }
+        }
+
+        const product = await context.db.products.updateById(args.id, args.input);
+        console.log('Product updated successfully:', product._id);
+        
+        return product;
+      } catch (error) {
+        console.error('Error updating product:', error);
+        throw error;
+      }
+    },
+    
+    deleteProduct: async (parent, args, context, info) => {
+      try {
+        console.log('Deleting product:', args.id);
+        
+        // Check if product exists and get its images
+        const existingProduct = await context.db.products.findById(args.id);
+        if (!existingProduct) {
+          throw new Error('Product not found');
+        }
+
+        // Delete product images from filesystem (optional)
+        if (existingProduct.images && existingProduct.images.length > 0) {
+          const fs = await import('fs');
+          const path = await import('path');
+          const { fileURLToPath } = await import('url');
+          const { dirname } = await import('path');
+          
+          const __filename = fileURLToPath(import.meta.url);
+          const __dirname = dirname(__filename);
+          
+          for (const imageName of existingProduct.images) {
+            try {
+              const imagePath = path.join(__dirname, '../img/', imageName);
+              if (fs.existsSync(imagePath)) {
+                fs.unlinkSync(imagePath);
+                console.log('Deleted image file:', imageName);
+              }
+            } catch (imageError) {
+              console.warn('Could not delete image file:', imageName, imageError.message);
+            }
+          }
+        }
+
+        const deletedId = await context.db.products.deleteById(args.id);
+        console.log('Product deleted successfully:', deletedId);
+        
+        return deletedId;
+      } catch (error) {
+        console.error('Error deleting product:', error);
+        throw error;
+      }
+    },
+  },
+};
+
+================================================================================
+// FILE PATH: graphql\schema.js
+================================================================================
+
+import { createSchema } from "graphql-yoga";
+import _ from "lodash";
+import { typeDef as hello, resolvers as helloResolvers } from "./hello.js";
+import { typeDef as categories, resolvers as categoriesResolvers } from "./categories.js";
+import { typeDef as products, resolvers as productsResolvers } from "./products.js";
+import { typeDef as brands, resolvers as brandsResolvers } from "./brands.js";
+import { typeDef as authentication, resolvers as authenticationResolvers } from "./authentication.js";
+import { typeDef as upload, resolvers as uploadResolvers } from "./upload.js";
+import { typeDef as carts, resolvers as cartsResolvers } from "./carts.js";
+import { typeDef as orders, resolvers as ordersResolvers } from "./orders.js";
+import { typeDef as wishlist, resolvers as wishlistResolvers } from "./wishlist.js"; // Thêm dòng này
+
+const query = `
+  type Query {
+    _empty: String
+  }
+  
+  type Mutation {
+    _emptyAction: String
+  }
+`;
+
+const typeDefs = [query, hello,  categories, products, brands, authentication, upload, carts, orders, wishlist];
+const resolvers = _.merge(
+  helloResolvers, 
+  categoriesResolvers,
+  productsResolvers,
+  brandsResolvers,
+  authenticationResolvers,
+  uploadResolvers,
+  cartsResolvers,
+  ordersResolvers,
+  wishlistResolvers // Thêm wishlistResolvers vào merge
+ 
+);
+
+export const schema = createSchema({
+  typeDefs: typeDefs,
+  resolvers: resolvers,
+});
+
+================================================================================
+// FILE PATH: graphql\upload.js
+================================================================================
+
+// server/graphql/upload.js - Updated với Firebase Storage (FIXED)
+import path from "path";
+import { v4 as uuidv4 } from "uuid";
+import { 
+  uploadFileToFirebase,
+  uploadProductImage,
+  uploadProductImages,
+  deleteProductImage
+} from "../services/firebaseStorageService.js";
+
+// Validate image file
+const validateImageFile = (filename, allowedTypes = ['.jpg', '.jpeg', '.png', '.gif', '.webp']) => {
+  if (!filename) {
+    throw new Error("Filename is required");
+  }
+  
+  const fileExtension = path.extname(filename).toLowerCase();
+  
+  if (!fileExtension) {
+    throw new Error("File must have an extension");
+  }
+  
+  if (!allowedTypes.includes(fileExtension)) {
+    throw new Error(`Invalid file type. Allowed types: ${allowedTypes.join(', ')}`);
+  }
+  
+  return true;
+};
+
+export const typeDef = `
+  scalar File
+
+  type UploadResult {
+    success: Boolean!
+    message: String!
+    filename: String
+    url: String
+  }
+
+  extend type Mutation {
+    upload(file: File!): String!
+    uploadProductImage(productId: ID!, file: File!): UploadResult!
+    uploadProductImages(productId: ID!, files: [File!]!): UploadResult!
+    removeProductImage(productId: ID!, filename: String!): Boolean!
+  }
+`;
+
+export const resolvers = {
+  Mutation: {
+    // ✅ UPDATED: Basic upload với Firebase
+    upload: async (_, { file }) => {
+      try {
+        console.log('📤 Basic upload starting...');
+        
+        // Validate image
+        validateImageFile(file.name);
+        
+        // Upload to Firebase
+        const result = await uploadFileToFirebase(file);
+        
+        if (!result.success) {
+          throw new Error(result.message);
+        }
+        
+        console.log('✅ Basic upload successful:', result.filename);
+        return result.filename;
+        
+      } catch (error) {
+        console.error("❌ Basic upload error:", error);
+        throw new Error(`Upload failed: ${error.message}`);
+      }
+    },
+
+    // ✅ FIXED: Upload single product image với Firebase
+    uploadProductImage: async (_, { productId, file }, context) => {
+      try {
+        console.log('=== UPLOAD PRODUCT IMAGE START ===');
+        console.log('Product ID:', productId);
+        
+        // Check if product exists
+        const product = await context.db.products.findById(productId);
+        if (!product) {
+          throw new Error("Product not found");
+        }
+
+        // Validate image
+        validateImageFile(file.name);
+        
+        // Upload to Firebase
+        const uploadResult = await uploadProductImage(productId, file);
+        
+        if (!uploadResult.success) {
+          throw new Error(uploadResult.message);
+        }
+        
+        // ✅ FIXED: Update product với Firebase URL (không phải filename)
+        const currentImages = product.images || [];
+        const updatedImages = [...currentImages, uploadResult.url]; // ✅ LƯU URL
+
+        await context.db.products.updateById(productId, {
+          images: updatedImages
+        });
+        
+        console.log('✅ Product image uploaded successfully');
+        console.log('🔗 Firebase URL:', uploadResult.url);
+        console.log('📁 Saved to DB:', uploadResult.url);
+        console.log('=== UPLOAD PRODUCT IMAGE END ===');
+        
+        return {
+          success: true,
+          message: "Image uploaded to Firebase and added to product successfully",
+          filename: uploadResult.filename,
+          url: uploadResult.url
+        };
+        
+      } catch (error) {
+        console.error("❌ Upload product image error:", error);
+        return {
+          success: false,
+          message: `Upload failed: ${error.message}`,
+          filename: null,
+          url: null
+        };
+      }
+    },
+
+    // ✅ FIXED: Upload multiple product images với Firebase
+    uploadProductImages: async (_, { productId, files }, context) => {
+      try {
+        console.log('=== UPLOAD PRODUCT IMAGES START ===');
+        console.log('Product ID:', productId);
+        console.log('Files count:', files.length);
+        
+        // Check if product exists
+        const product = await context.db.products.findById(productId);
+        if (!product) {
+          throw new Error("Product not found");
+        }
+        
+        // Validate all files first
+        files.forEach(file => validateImageFile(file.name));
+        
+        // Upload to Firebase
+        const uploadResult = await uploadProductImages(productId, files);
+        
+        if (!uploadResult.success) {
+          throw new Error(uploadResult.message);
+        }
+        
+        // ✅ FIXED: Get URLs from successful uploads (không phải filename)
+        const uploadedUrls = uploadResult.uploadedFiles.map(file => file.url); // ✅ LẤY URLs
+        
+        // ✅ FIXED: Update product với Firebase URLs
+        const currentImages = product.images || [];
+        const updatedImages = [...currentImages, ...uploadedUrls]; // ✅ LƯU URLs
+        
+        await context.db.products.updateById(productId, {
+          images: updatedImages
+        });
+        
+        // Prepare response
+        const allUrls = uploadResult.uploadedFiles.map(file => file.url);
+        const allFilenames = uploadResult.uploadedFiles.map(file => file.filename);
+        const mainUrl = allUrls.length > 0 ? allUrls[0] : null;
+        
+        console.log('✅ Multiple images uploaded successfully');
+        console.log('📊 Upload summary:', {
+          successful: uploadResult.uploadedFiles.length,
+          failed: uploadResult.errors.length,
+          mainUrl: mainUrl
+        });
+        console.log('📁 Saved URLs to DB:', uploadedUrls);
+        console.log('=== UPLOAD PRODUCT IMAGES END ===');
+        
+        return {
+          success: true,
+          message: uploadResult.message,
+          filename: allFilenames.join(', '), // Tương thích với frontend
+          url: mainUrl // URL của ảnh đầu tiên
+        };
+        
+      } catch (error) {
+        console.error("❌ Upload product images error:", error);
+        return {
+          success: false,
+          message: `Upload failed: ${error.message}`,
+          filename: null,
+          url: null
+        };
+      }
+    },
+
+    // ✅ UPDATED: Remove product image từ Firebase
+    removeProductImage: async (_, { productId, filename }, context) => {
+      try {
+        console.log('🗑️ Removing product image:', filename);
+        
+        // Check if product exists
+        const product = await context.db.products.findById(productId);
+        if (!product) {
+          throw new Error("Product not found");
+        }
+        
+        // ✅ IMPROVED: Handle both URL and filename for removal
+        let imageToRemove = filename;
+        
+        // If it's a URL, extract filename for Firebase deletion
+        if (filename.includes('firebasestorage.googleapis.com')) {
+          const urlParts = filename.split('/');
+          const encodedFilename = urlParts[urlParts.length - 1].split('?')[0];
+          imageToRemove = decodeURIComponent(encodedFilename);
+          console.log('🔍 Extracted filename from URL:', imageToRemove);
+        }
+        
+        // Remove from Firebase Storage
+        const deleteResult = await deleteProductImage(imageToRemove);
+        
+        if (!deleteResult.success) {
+          console.warn('⚠️ Firebase delete failed:', deleteResult.message);
+          // Vẫn tiếp tục remove khỏi database
+        }
+        
+        // ✅ IMPROVED: Remove from product images array (support both URL and filename)
+        const currentImages = product.images || [];
+        const updatedImages = currentImages.filter(img => 
+          img !== filename && // Remove exact match
+          img !== imageToRemove && // Remove filename match
+          !img.includes(imageToRemove) // Remove URL containing filename
+        );
+        
+        await context.db.products.updateById(productId, {
+          images: updatedImages
+        });
+        
+        console.log('✅ Product image removed successfully');
+        console.log('📁 Removed from DB:', filename);
+        return true;
+        
+      } catch (error) {
+        console.error("❌ Remove product image error:", error);
+        throw new Error(`Remove failed: ${error.message}`);
+      }
+    }
+  }
+};
+
+================================================================================
+// FILE PATH: graphql\wishlist.js
+================================================================================
+
+import mongoose from "mongoose";
+
+export const typeDef = `
+  type WishlistItem {
+    _id: ID!
+    userId: ID!
+    product: Product!
+    createdAt: String
+  }
+
+  extend type Query {
+    # Lấy danh sách yêu thích của người dùng hiện tại
+    myWishlist: [WishlistItem!]!
+    
+    # Kiểm tra xem một sản phẩm có trong wishlist không (để hiển thị icon trái tim)
+    isProductInWishlist(productId: ID!): Boolean!
+  }
+
+  extend type Mutation {
+    # Thêm một sản phẩm vào wishlist
+    addToWishlist(productId: ID!): WishlistItem!
+
+    # Xóa một sản phẩm khỏi wishlist
+    removeFromWishlist(productId: ID!): Boolean!
+  }
+`;
+
+export const resolvers = {
+  Query: {
+    myWishlist: async (parent, args, context) => {
+      if (!context.user) throw new Error("Authentication required");
+      
+      const wishlistItems = await context.db.wishlists.findByUserId(context.user.id);
+      return wishlistItems;
+    },
+    
+    isProductInWishlist: async (parent, { productId }, context) => {
+      if (!context.user) return false;
+      
+      const item = await context.db.wishlists.findOne(context.user.id, productId);
+      return !!item; // Trả về true nếu tìm thấy, ngược lại trả về false
+    },
+  },
+
+  Mutation: {
+    addToWishlist: async (parent, { productId }, context) => {
+      if (!context.user) throw new Error("Authentication required");
+      
+      // Kiểm tra xem sản phẩm có tồn tại không
+      const product = await context.db.products.findById(productId);
+      if (!product) throw new Error("Product not found");
+
+      // Tạo mới trong wishlist
+      const newItem = await context.db.wishlists.create(context.user.id, productId);
+      return newItem;
+    },
+
+    removeFromWishlist: async (parent, { productId }, context) => {
+      if (!context.user) throw new Error("Authentication required");
+
+      const success = await context.db.wishlists.remove(context.user.id, productId);
+      return success;
+    },
+  },
+  
+  // Resolver cho các trường lồng nhau
+  WishlistItem: {
+    product: async (parent, args, context) => {
+      return await context.db.products.findById(parent.productId);
+    }
+  }
+};
+
+================================================================================
+// FILE PATH: services\emailService.js
+================================================================================
+
+// File: server/services/emailService.js (BEAUTIFUL EMAIL TEMPLATE)
+
+import nodemailer from 'nodemailer';
+import dotenv from 'dotenv';
+
+dotenv.config();
+
+const createTransporter = () => {
+  const useRealEmail = process.env.USE_REAL_EMAIL === 'true';
+  
+  if (!useRealEmail) {
+    return {
+      sendMail: async (mailOptions) => {
+        console.log('=== 📧 MOCK EMAIL SENT ===');
+        console.log('📧 To:', mailOptions.to);
+        console.log('🔢 OTP:', mailOptions.html.match(/\d{6}/)?.[0] || 'Not found');
+        console.log('=========================');
+        return { messageId: 'mock-' + Date.now() };
+      }
+    };
+  }
+
+  return nodemailer.createTransport({
+    service: 'gmail',
+    auth: {
+      user: process.env.GMAIL_USER,
+      pass: process.env.GMAIL_APP_PASSWORD
+    }
+  });
+};
+
+export const emailService = {
+  async sendPasswordResetOTP(email, otp, userName) {
+    const transporter = createTransporter();
+    
+    const mailOptions = {
+      from: `"SmartShop Security" <${process.env.GMAIL_USER}>`,
+      to: email,
+      subject: '🔐 SmartShop - Mã xác thực đặt lại mật khẩu',
+      html: `
+        <!DOCTYPE html>
+        <html lang="vi">
+        <head>
+          <meta charset="utf-8">
+          <meta name="viewport" content="width=device-width, initial-scale=1.0">
+          <title>SmartShop OTP Verification</title>
+          <style>
+            * { margin: 0; padding: 0; box-sizing: border-box; }
+            body { 
+              font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+              background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+              padding: 20px;
+              min-height: 100vh;
+            }
+            .email-container {
+              max-width: 600px;
+              margin: 0 auto;
+              background: white;
+              border-radius: 24px;
+              overflow: hidden;
+              box-shadow: 0 32px 64px rgba(0, 0, 0, 0.15);
+              position: relative;
+            }
+            .header {
+              background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 50%, #ec4899 100%);
+              padding: 40px 30px;
+              text-align: center;
+              position: relative;
+              overflow: hidden;
+            }
+            .header::before {
+              content: '';
+              position: absolute;
+              top: -50%;
+              right: -50%;
+              width: 200%;
+              height: 200%;
+              background: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><defs><pattern id="grain" width="100" height="100" patternUnits="userSpaceOnUse"><circle cx="25" cy="25" r="1" fill="white" opacity="0.1"/><circle cx="75" cy="75" r="1" fill="white" opacity="0.1"/><circle cx="50" cy="10" r="0.5" fill="white" opacity="0.2"/><circle cx="90" cy="40" r="0.8" fill="white" opacity="0.15"/></pattern></defs><rect width="100" height="100" fill="url(%23grain)"/></svg>');
+              animation: float 20s ease-in-out infinite;
+            }
+            @keyframes float {
+              0%, 100% { transform: translateY(0px) rotate(0deg); }
+              50% { transform: translateY(-20px) rotate(180deg); }
+            }
+            .logo-container {
+              position: relative;
+              z-index: 2;
+              margin-bottom: 20px;
+            }
+            .logo {
+              display: inline-flex;
+              align-items: center;
+              justify-content: center;
+              width: 80px;
+              height: 80px;
+              background: rgba(255, 255, 255, 0.2);
+              border-radius: 20px;
+              backdrop-filter: blur(10px);
+              border: 2px solid rgba(255, 255, 255, 0.3);
+              font-size: 32px;
+              margin-bottom: 15px;
+            }
+            .header h1 {
+              color: white;
+              font-size: 32px;
+              font-weight: 700;
+              margin-bottom: 8px;
+              position: relative;
+              z-index: 2;
+            }
+            .header p {
+              color: rgba(255, 255, 255, 0.9);
+              font-size: 16px;
+              position: relative;
+              z-index: 2;
+            }
+            .content {
+              padding: 50px 40px;
+            }
+            .greeting {
+              font-size: 24px;
+              color: #1f2937;
+              margin-bottom: 20px;
+              font-weight: 600;
+            }
+            .message {
+              font-size: 16px;
+              color: #6b7280;
+              line-height: 1.6;
+              margin-bottom: 35px;
+            }
+            .otp-section {
+              background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+              border: 2px dashed #e2e8f0;
+              border-radius: 20px;
+              padding: 35px;
+              text-align: center;
+              margin: 35px 0;
+              position: relative;
+            }
+            .otp-section::before {
+              content: '🔐';
+              position: absolute;
+              top: -15px;
+              left: 30px;
+              background: white;
+              padding: 5px 10px;
+              border-radius: 50px;
+              font-size: 20px;
+            }
+            .otp-label {
+              font-size: 14px;
+              color: #64748b;
+              margin-bottom: 15px;
+              text-transform: uppercase;
+              letter-spacing: 1px;
+              font-weight: 600;
+            }
+            .otp-code {
+              font-size: 48px;
+              font-weight: 900;
+              color: #4f46e5;
+              letter-spacing: 12px;
+              margin: 15px 0;
+              text-shadow: 0 2px 4px rgba(79, 70, 229, 0.2);
+              font-family: 'Courier New', monospace;
+            }
+            .otp-timer {
+              font-size: 14px;
+              color: #f59e0b;
+              font-weight: 600;
+              display: flex;
+              align-items: center;
+              justify-content: center;
+              gap: 8px;
+            }
+            .security-tips {
+              background: linear-gradient(135deg, #fef3c7 0%, #fed7aa 100%);
+              border-left: 4px solid #f59e0b;
+              border-radius: 12px;
+              padding: 25px;
+              margin: 30px 0;
+            }
+            .security-tips h3 {
+              color: #92400e;
+              font-size: 16px;
+              margin-bottom: 15px;
+              display: flex;
+              align-items: center;
+              gap: 8px;
+            }
+            .security-tips ul {
+              list-style: none;
+              padding: 0;
+            }
+            .security-tips li {
+              color: #78350f;
+              font-size: 14px;
+              margin-bottom: 8px;
+              padding-left: 20px;
+              position: relative;
+            }
+            .security-tips li::before {
+              content: '⚡';
+              position: absolute;
+              left: 0;
+              top: 0;
+            }
+            .cta-button {
+              display: inline-block;
+              background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
+              color: white;
+              padding: 16px 32px;
+              text-decoration: none;
+              border-radius: 12px;
+              font-weight: 600;
+              font-size: 16px;
+              margin: 25px 0;
+              transition: all 0.3s ease;
+              box-shadow: 0 8px 25px rgba(79, 70, 229, 0.3);
+            }
+            .cta-button:hover {
+              transform: translateY(-2px);
+              box-shadow: 0 12px 35px rgba(79, 70, 229, 0.4);
+            }
+            .footer {
+              background: #f8fafc;
+              padding: 30px;
+              text-align: center;
+              border-top: 1px solid #e2e8f0;
+            }
+            .footer-note {
+              color: #64748b;
+              font-size: 14px;
+              line-height: 1.6;
+              margin-bottom: 15px;
+            }
+            .footer-brand {
+              color: #1f2937;
+              font-weight: 600;
+              font-size: 16px;
+            }
+            .footer-links {
+              margin-top: 15px;
+            }
+            .footer-links a {
+              color: #4f46e5;
+              text-decoration: none;
+              font-size: 13px;
+              margin: 0 10px;
+            }
+            .divider {
+              height: 1px;
+              background: linear-gradient(90deg, transparent 0%, #e2e8f0 50%, transparent 100%);
+              margin: 30px 0;
+            }
+            @media (max-width: 600px) {
+              .content { padding: 30px 25px; }
+              .otp-code { font-size: 36px; letter-spacing: 8px; }
+              .header { padding: 30px 20px; }
+            }
+          </style>
+        </head>
+        <body>
+          <div class="email-container">
+            <!-- Header -->
+            <div class="header">
+              <div class="logo-container">
+                <div class="logo">🛒</div>
+              </div>
+              <h1>SmartShop</h1>
+              <p>Hệ thống bảo mật thông minh</p>
+            </div>
+
+            <!-- Content -->
+            <div class="content">
+              <div class="greeting">Xin chào ${userName}! 👋</div>
+              
+              <div class="message">
+                Chúng tôi đã nhận được yêu cầu đặt lại mật khẩu cho tài khoản SmartShop của bạn. 
+                Để đảm bảo bảo mật, vui lòng sử dụng mã xác thực bên dưới.
+              </div>
+
+              <!-- OTP Section -->
+              <div class="otp-section">
+                <div class="otp-label">Mã xác thực của bạn</div>
+                <div class="otp-code">${otp}</div>
+                <div class="otp-timer">
+                  ⏰ Có hiệu lực trong <strong>10 phút</strong>
+                </div>
+              </div>
+
+              <!-- Security Tips -->
+              <div class="security-tips">
+                <h3>⚡ Lưu ý bảo mật quan trọng</h3>
+                <ul>
+                  <li>Mã này chỉ sử dụng được <strong>một lần duy nhất</strong></li>
+                  <li>Không chia sẻ mã với bất kỳ ai, kể cả nhân viên SmartShop</li>
+                  <li>Nếu không phải bạn yêu cầu, hãy bỏ qua email này</li>
+                  <li>Đăng xuất khỏi tất cả thiết bị sau khi đổi mật khẩu</li>
+                </ul>
+              </div>
+
+              <div class="divider"></div>
+
+              <div style="text-align: center;">
+                <a href="${process.env.FRONTEND_URL}/forgot-password" class="cta-button">
+                  🚀 Đặt lại mật khẩu ngay
+                </a>
+              </div>
+
+              <div class="divider"></div>
+
+              <div style="text-align: center; color: #6b7280; font-size: 14px;">
+                <strong>Cần hỗ trợ?</strong><br>
+                Liên hệ đội ngũ hỗ trợ SmartShop 24/7<br>
+                📧 support@smartshop.com | 📞 1900.xxxx
+              </div>
+            </div>
+
+            <!-- Footer -->
+            <div class="footer">
+              <div class="footer-note">
+                Email này được gửi tự động từ hệ thống bảo mật SmartShop.<br>
+                Vui lòng không trả lời trực tiếp email này.
+              </div>
+              <div class="footer-brand">© 2025 SmartShop - Điện tử thông minh</div>
+              <div class="footer-links">
+                <a href="#">Chính sách bảo mật</a> •
+                <a href="#">Điều khoản sử dụng</a> •
+                <a href="#">Trung tâm hỗ trợ</a>
+              </div>
+            </div>
+          </div>
+        </body>
+        </html>
+      `,
+      text: `
+🛒 SmartShop - Mã xác thực đặt lại mật khẩu
+
+Xin chào ${userName}!
+
+Mã OTP của bạn: ${otp}
+
+Mã này có hiệu lực trong 10 phút và chỉ sử dụng được một lần.
+
+Truy cập: ${process.env.FRONTEND_URL}/forgot-password
+
+Lưu ý bảo mật:
+- Không chia sẻ mã này với bất kỳ ai
+- SmartShop không bao giờ hỏi mã OTP qua điện thoại
+
+Trân trọng,
+Đội ngũ SmartShop Security
+      `
+    };
+
+    try {
+      const info = await transporter.sendMail(mailOptions);
+      console.log('✅ Beautiful email sent successfully!');
+      console.log('📧 To:', email);
+      console.log('🔢 OTP:', otp);
+      
+      return { 
+        success: true, 
+        messageId: info.messageId 
+      };
+    } catch (error) {
+      console.error('❌ Email sending failed:', error);
+      throw new Error(`Failed to send OTP email: ${error.message}`);
+    }
+  }
+};
+
+================================================================================
+// FILE PATH: services\firebaseStorageService.js
+================================================================================
+
+// server/services/firebaseStorageService.js
+import { 
+  ref, 
+  uploadBytes, 
+  getDownloadURL, 
+  deleteObject,
+  listAll 
+} from 'firebase/storage';
+import { storage, STORAGE_CONFIG } from '../config/firebase.js';
+import { v4 as uuidv4 } from 'uuid';
+import path from 'path';
+
+/**
+ * Upload file to Firebase Storage
+ * @param {File} file - File object từ GraphQL upload
+ * @param {string} folder - Thư mục lưu trữ (ví dụ: 'products/images/')
+ * @param {string} customName - Tên file tùy chỉnh (optional)
+ * @returns {Promise<{success: boolean, filename: string, url: string, message: string}>}
+ */
+export const uploadFileToFirebase = async (file, folder = STORAGE_CONFIG.generalUploadsPath, customName = null) => {
+  try {
+    console.log('🔄 Starting Firebase upload...');
+    
+    // Validate file
+    const originalName = file.name;
+    const fileExtension = path.extname(originalName).toLowerCase();
+    
+    if (!STORAGE_CONFIG.allowedTypes.includes(fileExtension)) {
+      throw new Error(`Invalid file type. Allowed types: ${STORAGE_CONFIG.allowedTypes.join(', ')}`);
+    }
+    
+    // Get file buffer
+    const fileArrayBuffer = await file.arrayBuffer();
+    const fileBuffer = Buffer.from(fileArrayBuffer);
+    
+    // Validate file size
+    if (fileBuffer.length > STORAGE_CONFIG.maxFileSize) {
+      throw new Error(`File too large. Max size: ${STORAGE_CONFIG.maxFileSize / (1024 * 1024)}MB`);
+    }
+    
+    // Generate unique filename
+    const filename = customName || `${uuidv4()}${fileExtension}`;
+    const filePath = `${folder}${filename}`;
+    
+    // Create storage reference
+    const storageRef = ref(storage, filePath);
+    
+    // Upload file
+    console.log(`📤 Uploading to path: ${filePath}`);
+    const snapshot = await uploadBytes(storageRef, fileBuffer, {
+      contentType: file.type || 'image/jpeg'
+    });
+    
+    // Get download URL
+    const downloadURL = await getDownloadURL(snapshot.ref);
+    
+    console.log('✅ Upload successful!');
+    console.log('📁 File path:', filePath);
+    console.log('🔗 Download URL:', downloadURL);
+    
+    return {
+      success: true,
+      filename: filename,
+      url: downloadURL,
+      path: filePath,
+      message: 'File uploaded successfully'
+    };
+    
+  } catch (error) {
+    console.error('❌ Firebase upload error:', error);
+    return {
+      success: false,
+      filename: null,
+      url: null,
+      path: null,
+      message: `Upload failed: ${error.message}`
+    };
+  }
+};
+
+/**
+ * Upload single product image
+ * @param {string} productId - ID của sản phẩm
+ * @param {File} file - File object
+ * @returns {Promise<{success: boolean, filename: string, url: string, message: string}>}
+ */
+export const uploadProductImage = async (productId, file) => {
+  const timestamp = Date.now();
+  const fileExtension = path.extname(file.name).toLowerCase();
+  const customFilename = `product_${productId}_${timestamp}_${uuidv4()}${fileExtension}`;
+  
+  return await uploadFileToFirebase(file, STORAGE_CONFIG.productImagesPath, customFilename);
+};
+
+/**
+ * Upload multiple product images
+ * @param {string} productId - ID của sản phẩm  
+ * @param {File[]} files - Array of file objects
+ * @returns {Promise<{success: boolean, uploadedFiles: Array, errors: Array, message: string}>}
+ */
+export const uploadProductImages = async (productId, files) => {
+  const uploadedFiles = [];
+  const errors = [];
+  
+  console.log(`🖼️ Uploading ${files.length} images for product ${productId}`);
+  
+  for (let i = 0; i < files.length; i++) {
+    try {
+      const file = files[i];
+      const timestamp = Date.now();
+      const fileExtension = path.extname(file.name).toLowerCase();
+      const customFilename = `product_${productId}_${timestamp}_${i}_${uuidv4()}${fileExtension}`;
+      
+      const result = await uploadFileToFirebase(file, STORAGE_CONFIG.productImagesPath, customFilename);
+      
+      if (result.success) {
+        uploadedFiles.push({
+          filename: result.filename,
+          url: result.url,
+          path: result.path
+        });
+        console.log(`✅ File ${i + 1}/${files.length} uploaded: ${result.filename}`);
+      } else {
+        errors.push(`File ${i + 1}: ${result.message}`);
+        console.error(`❌ File ${i + 1} failed:`, result.message);
+      }
+      
+    } catch (error) {
+      const errorMsg = `File ${i + 1}: ${error.message}`;
+      errors.push(errorMsg);
+      console.error(`❌ File ${i + 1} error:`, error);
+    }
+  }
+  
+  const success = uploadedFiles.length > 0;
+  const message = success 
+    ? `${uploadedFiles.length} file(s) uploaded successfully${errors.length > 0 ? `. Errors: ${errors.join('; ')}` : ''}`
+    : `Upload failed. Errors: ${errors.join('; ')}`;
+  
+  return {
+    success,
+    uploadedFiles,
+    errors,
+    message
+  };
+};
+
+/**
+ * Delete file from Firebase Storage
+ * @param {string} filePath - Đường dẫn file trong Firebase Storage
+ * @returns {Promise<{success: boolean, message: string}>}
+ */
+export const deleteFileFromFirebase = async (filePath) => {
+  try {
+    console.log(`🗑️ Deleting file: ${filePath}`);
+    
+    const fileRef = ref(storage, filePath);
+    await deleteObject(fileRef);
+    
+    console.log('✅ File deleted successfully');
+    return {
+      success: true,
+      message: 'File deleted successfully'
+    };
+    
+  } catch (error) {
+    console.error('❌ Delete file error:', error);
+    return {
+      success: false,
+      message: `Delete failed: ${error.message}`
+    };
+  }
+};
+
+/**
+ * Delete product image by filename
+ * @param {string} filename - Tên file cần xóa
+ * @returns {Promise<{success: boolean, message: string}>}
+ */
+export const deleteProductImage = async (filename) => {
+  const filePath = `${STORAGE_CONFIG.productImagesPath}${filename}`;
+  return await deleteFileFromFirebase(filePath);
+};
+
+/**
+ * List all files in a folder
+ * @param {string} folderPath - Đường dẫn thư mục
+ * @returns {Promise<{success: boolean, files: Array, message: string}>}
+ */
+export const listFilesInFolder = async (folderPath) => {
+  try {
+    const folderRef = ref(storage, folderPath);
+    const result = await listAll(folderRef);
+    
+    const files = await Promise.all(
+      result.items.map(async (itemRef) => {
+        const url = await getDownloadURL(itemRef);
+        return {
+          name: itemRef.name,
+          path: itemRef.fullPath,
+          url: url
+        };
+      })
+    );
+    
+    return {
+      success: true,
+      files,
+      message: `Found ${files.length} files`
+    };
+    
+  } catch (error) {
+    console.error('❌ List files error:', error);
+    return {
+      success: false,
+      files: [],
+      message: `List files failed: ${error.message}`
+    };
+  }
+};
+
+================================================================================
+// FILE PATH: test\globalSetup.js
+================================================================================
+
+import { MongoMemoryServer } from "mongodb-memory-server";
+
+export default async function globalSetup() {
+  const instance = await MongoMemoryServer.create({
+    binary: {
+      version: "6.0.4",
+    },
+  });
+  
+  global.__MONGOINSTANCE = instance;
+  process.env.DATABASE_URL = instance.getUri();
+}
+
+================================================================================
+// FILE PATH: test\globalTeardown.js
+================================================================================
+
+export default async function globalTeardown() {
+  await global.__MONGOINSTANCE.stop();
+}
+
+================================================================================
+// FILE PATH: test\setupFileAfterEnv.js
+================================================================================
+
+import mongoose from "mongoose";
+import { beforeAll, afterAll } from "@jest/globals";
+import { initDatabase } from "../data/init.js";
+
+beforeAll(async () => {
+  await initDatabase();
+});
+
+afterAll(async () => {
+  await mongoose.disconnect();
+});
+
+================================================================================
+// FILE PATH: utils\imageHelper.js
+================================================================================
+
+export const getImageUrl = (filename, baseUrl = "") => {
+  if (!filename) return null;
+  
+  // Nếu filename đã là full URL thì return nguyên
+  if (filename.startsWith("http") || filename.startsWith("/img/")) {
+    return filename;
+  }
+  
+  // Nếu không thì tạo URL
+  return `/img/${filename}`;
+};
+
+export const getProductImageUrls = (images = []) => {
+  return images.map(img => getImageUrl(img));
+};
+
+================================================================================
+// FILE PATH: utils\otpUtils.js
+================================================================================
+
+// File: server/utils/otpUtils.js (TẠO FILE MỚI)
+
+import crypto from 'crypto';
+
+export const otpUtils = {
+  // Tạo OTP 6 số ngẫu nhiên
+  generateOTP() {
+    return Math.floor(100000 + Math.random() * 900000).toString();
+  },
+
+  // Tạo thời gian hết hạn OTP (10 phút từ bây giờ)
+  generateOTPExpiry() {
+    return new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
+  },
+
+  // Kiểm tra OTP đã hết hạn chưa
+  isOTPExpired(expiryDate) {
+    return new Date() > expiryDate;
+  },
+
+  // Validate OTP format (6 số)
+  isValidOTPFormat(otp) {
+    return /^[0-9]{6}$/.test(otp);
+  },
+
+  // So sánh OTP (có thể thêm hash sau này nếu cần)
+  compareOTP(inputOTP, storedOTP) {
+    return inputOTP === storedOTP;
+  }
+};
+
+================================================================================
+// FILE PATH: utils\passwordReset.js
+================================================================================
+
+import crypto from 'crypto';
+
+export const passwordResetUtils = {
+  // Tạo token ngẫu nhiên an toàn
+  generateResetToken() {
+    return crypto.randomBytes(32).toString('hex');
+  },
+
+  // Tạo thời gian hết hạn (1 giờ từ bây giờ)
+  generateTokenExpiry() {
+    return new Date(Date.now() + 60 * 60 * 1000); // 1 hour
+  },
+
+  // Kiểm tra token đã hết hạn chưa
+  isTokenExpired(expiryDate) {
+    return new Date() > expiryDate;
+  }
+};
+
